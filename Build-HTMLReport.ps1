@@ -42,46 +42,53 @@ $Description
 "@
 
     # Create HTML tables from custom objects and add to the HTML structure
-    foreach ($object in $CustomObjects) {
-        # Convert the custom object to an HTML table
+    foreach ($objectGroup in $CustomObjects) {
+        # Extract table name from custom object (assuming TableName is the property holding the name)
+        $tableName = $objectGroup[0].TableName
+
         $html += @"
     <div class="table-container">
+        <h2>$tableName</h2>
         <table>
             <tr>
 "@
 
         # Add table headers based on properties of the first object
-        foreach ($property in $object.PSObject.Properties.Name) {
-            $html += "<th>$property</th>"
+        foreach ($property in $objectGroup[0].PSObject.Properties.Name) {
+            if ($property -ne 'TableName') {
+                $html += "<th>$property</th>"
+            }
         }
         $html += "</tr>"
 
         # Add rows of data for each custom object
-        foreach ($row in $object) {
+        foreach ($row in $objectGroup) {
             $html += "<tr>"
             foreach ($property in $row.PSObject.Properties.Name) {
-                $value = $row.$property
+                if ($property -ne 'TableName') {
+                    $value = $row.$property
 
-                # Apply conditional formatting based on specific thresholds for "PercentFree"
-                $cellClass = ""
-                if ($property -eq "PercentFree") {
-                    $percentValue = [double]($value -replace '[^0-9.]', '')  # Extract numeric part, handle decimal
+                    # Apply conditional formatting based on specific thresholds for "PercentFree"
+                    $cellClass = ""
+                    if ($property -eq "PercentFree") {
+                        $percentValue = [double]($value -replace '[^0-9.]', '')  # Extract numeric part, handle decimal
 
-                    if ($percentValue -ge 0 -and $percentValue -le 20) {
-                        $cellClass = "red"
-                    } elseif ($percentValue -gt 20 -and $percentValue -le 30) {
-                        $cellClass = "yellow"
-                    } elseif ($percentValue -gt 30 -and $percentValue -le 40) {
-                        $cellClass = "green"
+                        if ($percentValue -ge 0 -and $percentValue -le 20) {
+                            $cellClass = "red"
+                        } elseif ($percentValue -gt 20 -and $percentValue -le 30) {
+                            $cellClass = "yellow"
+                        } elseif ($percentValue -gt 30 -and $percentValue -le 40) {
+                            $cellClass = "green"
+                        }
+                        # If percentage is > 40, leave cell without coloring
                     }
-                    # If percentage is > 40, leave cell without coloring
-                }
 
-                # Add table cell with conditional formatting
-                if ($cellClass) {
-                    $html += "<td class='$cellClass'>$value</td>"
-                } else {
-                    $html += "<td>$value</td>"
+                    # Add table cell with conditional formatting
+                    if ($cellClass) {
+                        $html += "<td class='$cellClass'>$value</td>"
+                    } else {
+                        $html += "<td>$value</td>"
+                    }
                 }
             }
             $html += "</tr>"
@@ -108,24 +115,26 @@ $FooterText
     Write-Host "HTML report generated at $OutputPath"
 }
 
-# Example usage
-$Description = @"
-This report contains tables generated from custom objects.
-Each table represents different data points.
-The description here is a literal array
-"@
 
-$FooterText = @"
-This is additional information that appears after the tables.
-It could be notes or conclusions about the data.
-The description here is a literal array
-"@
+# Create example custom objects with a TableName property
+$object1 = @(
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "29 %" },
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "300.50 Gb"; "FreeSpace" = "275.50 Gb"; "PercentFree" = "48 %" },
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "450.00 Gb"; "FreeSpace" = "126.00 Gb"; "PercentFree" = "21 %" },
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "575.00 Gb"; "FreeSpace" = "1.00 Gb"; "PercentFree" = "0.17 %" }
+)
 
-# Create example custom objects 
-$object1 = [PSCustomObject]@{ Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "29 %" }
-$object2 = [PSCustomObject]@{ Name = "Server2"; "TotalSize" = "580 Gb"; "UsedSpace" = "224.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "19 %" }
-$object3 = [PSCustomObject]@{ Name = "Server3"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "38 %" }
-$object4 = [PSCustomObject]@{ Name = "Server4"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "78 %" }
+$object2 = @(
+    [PSCustomObject]@{ TableName = "Server 2"; Name = "Server2"; "TotalSize" = "580 Gb"; "UsedSpace" = "224.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "19 %" }
+)
+
+$object3 = @(
+    [PSCustomObject]@{ TableName = "Server 3"; Name = "Server3"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "38 %" }
+)
+
+$object4 = @(
+    [PSCustomObject]@{ TableName = "Server 4"; Name = "Server4"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "78 %" }
+)
 
 # Build report with custom objects
 $T = Build-HTMLReport -CustomObjects @($object1, $object2, $object3, $object4) -Description $Description -FooterText $FooterText
