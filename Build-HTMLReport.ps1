@@ -7,12 +7,7 @@
         [string]$Description,   # Text from literal array (before the tables)
 
         [Parameter(Mandatory = $true)]
-        [string]$FooterText,    # Text from second literal array (below the tables)
-
-        [Parameter(Mandatory = $true)]
-        [int]$ThresholdRed = 30,   # Set default threshold for Red
-        [Parameter(Mandatory = $true)]
-        [int]$ThresholdYellow = 60 # Set default threshold for Yellow
+        [string]$FooterText     # Text from second literal array (below the tables)
     )
 
     # Start HTML document structure
@@ -67,18 +62,19 @@ $Description
             foreach ($property in $row.PSObject.Properties.Name) {
                 $value = $row.$property
 
-                # Apply conditional formatting based on thresholds
+                # Apply conditional formatting based on specific thresholds for "PercentFree"
                 $cellClass = ""
                 if ($property -eq "PercentFree") {
-                    $percentValue = [int]($value -replace '[^0-9]', '')  # Extract numeric part
+                    $percentValue = [double]($value -replace '[^0-9.]', '')  # Extract numeric part, handle decimal
 
-                    if ($percentValue -le $ThresholdRed) {
+                    if ($percentValue -ge 0 -and $percentValue -le 20) {
                         $cellClass = "red"
-                    } elseif ($percentValue -le $ThresholdYellow) {
+                    } elseif ($percentValue -gt 20 -and $percentValue -le 30) {
                         $cellClass = "yellow"
-                    } else {
+                    } elseif ($percentValue -gt 30 -and $percentValue -le 40) {
                         $cellClass = "green"
                     }
+                    # If percentage is > 40, leave cell without coloring
                 }
 
                 # Add table cell with conditional formatting
@@ -116,17 +112,20 @@ $FooterText
 $Description = @"
 This report contains tables generated from custom objects.
 Each table represents different data points.
+The description here is a literal array
 "@
 
 $FooterText = @"
 This is additional information that appears after the tables.
 It could be notes or conclusions about the data.
+The description here is a literal array
 "@
 
 # Create example custom objects 
-$object1 = [PSCustomObject]@{ Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "79 %" }
-$object2 = [PSCustomObject]@{ Name = "Server2"; "TotalSize" = "580 Gb"; "UsedSpace" = "224.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "69 %" }
+$object1 = [PSCustomObject]@{ Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "29 %" }
+$object2 = [PSCustomObject]@{ Name = "Server2"; "TotalSize" = "580 Gb"; "UsedSpace" = "224.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "19 %" }
 $object3 = [PSCustomObject]@{ Name = "Server3"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "38 %" }
+$object4 = [PSCustomObject]@{ Name = "Server4"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "78 %" }
 
-# Build report with custom objects and thresholds
-$T = Build-HTMLReport -CustomObjects @($object1, $object2, $object3) -Description $Description -FooterText $FooterText -ThresholdRed 30 -ThresholdYellow 60
+# Build report with custom objects
+$T = Build-HTMLReport -CustomObjects @($object1, $object2, $object3, $object4) -Description $Description -FooterText $FooterText
