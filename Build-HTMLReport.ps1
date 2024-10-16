@@ -118,10 +118,10 @@ $FooterText
 
 # Create example custom objects with a TableName property
 $object1 = @(
-    [PSCustomObject]@{ TableName = "Server 1"; Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "29 %" },
-    [PSCustomObject]@{ TableName = "Server 1"; Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "300.50 Gb"; "FreeSpace" = "275.50 Gb"; "PercentFree" = "48 %" },
-    [PSCustomObject]@{ TableName = "Server 1"; Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "450.00 Gb"; "FreeSpace" = "126.00 Gb"; "PercentFree" = "21 %" },
-    [PSCustomObject]@{ TableName = "Server 1"; Name = "Server1"; "TotalSize" = "576 Gb"; "UsedSpace" = "575.00 Gb"; "FreeSpace" = "1.00 Gb"; "PercentFree" = "0.17 %" }
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "C:\"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "29 %" },
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "D:\"; "TotalSize" = "576 Gb"; "UsedSpace" = "300.50 Gb"; "FreeSpace" = "275.50 Gb"; "PercentFree" = "48 %" },
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "E:\"; "TotalSize" = "576 Gb"; "UsedSpace" = "450.00 Gb"; "FreeSpace" = "126.00 Gb"; "PercentFree" = "21 %" },
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "G:\"; "TotalSize" = "576 Gb"; "UsedSpace" = "575.00 Gb"; "FreeSpace" = "1.00 Gb"; "PercentFree" = "0.17 %" }
 )
 
 $object2 = @(
