@@ -68,26 +68,32 @@ $Description
                 if ($property -ne 'TableName') {
                     $value = $row.$property
 
-                    # Apply conditional formatting based on specific thresholds for "PercentFree"
-                    $cellClass = ""
-                    if ($property -eq "PercentFree") {
-                        $percentValue = [double]($value -replace '[^0-9.]', '')  # Extract numeric part, handle decimal
-
-                        if ($percentValue -ge 0 -and $percentValue -le 20) {
-                            $cellClass = "red"
-                        } elseif ($percentValue -gt 20 -and $percentValue -le 30) {
-                            $cellClass = "yellow"
-                        } elseif ($percentValue -gt 30 -and $percentValue -le 40) {
-                            $cellClass = "green"
-                        }
-                        # If percentage is > 40, leave cell without coloring
+                    # If a 'Link' property exists, create a hyperlink in the Name column
+                    if ($property -eq 'Name' -and $row.PSObject.Properties.Match('Link')) {
+                        $link = $row.Link
+                        $html += "<td><a href='$link' target='_blank'>$value</a></td>"
                     }
+                    else {
+                        # Apply conditional formatting based on specific thresholds for "PercentFree"
+                        $cellClass = ""
+                        if ($property -eq "PercentFree") {
+                            $percentValue = [double]($value -replace '[^0-9.]', '')  # Extract numeric part, handle decimal
 
-                    # Add table cell with conditional formatting
-                    if ($cellClass) {
-                        $html += "<td class='$cellClass'>$value</td>"
-                    } else {
-                        $html += "<td>$value</td>"
+                            if ($percentValue -ge 0 -and $percentValue -le 20) {
+                                $cellClass = "red"
+                            } elseif ($percentValue -gt 20 -and $percentValue -le 30) {
+                                $cellClass = "yellow"
+                            } elseif ($percentValue -gt 30 -and $percentValue -le 40) {
+                                $cellClass = "green"
+                            }
+                        }
+
+                        # Add table cell with conditional formatting
+                        if ($cellClass) {
+                            $html += "<td class='$cellClass'>$value</td>"
+                        } else {
+                            $html += "<td>$value</td>"
+                        }
                     }
                 }
             }
@@ -116,25 +122,29 @@ $FooterText
 }
 
 
-# Create example custom objects with a TableName property
+# Create example custom objects with a TableName property and hyperlinks
 $object1 = @(
-    [PSCustomObject]@{ TableName = "Server 1"; Name = "C:\"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "29 %" },
-    [PSCustomObject]@{ TableName = "Server 1"; Name = "D:\"; "TotalSize" = "576 Gb"; "UsedSpace" = "300.50 Gb"; "FreeSpace" = "275.50 Gb"; "PercentFree" = "48 %" },
-    [PSCustomObject]@{ TableName = "Server 1"; Name = "E:\"; "TotalSize" = "576 Gb"; "UsedSpace" = "450.00 Gb"; "FreeSpace" = "126.00 Gb"; "PercentFree" = "21 %" },
-    [PSCustomObject]@{ TableName = "Server 1"; Name = "G:\"; "TotalSize" = "576 Gb"; "UsedSpace" = "575.00 Gb"; "FreeSpace" = "1.00 Gb"; "PercentFree" = "0.17 %" }
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "C:\"; Link = "http://example.com/C"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "29 %" },
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "D:\"; Link = "http://example.com/D"; "TotalSize" = "576 Gb"; "UsedSpace" = "300.50 Gb"; "FreeSpace" = "275.50 Gb"; "PercentFree" = "48 %" },
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "E:\"; Link = "http://example.com/E"; "TotalSize" = "576 Gb"; "UsedSpace" = "450.00 Gb"; "FreeSpace" = "126.00 Gb"; "PercentFree" = "21 %" },
+    [PSCustomObject]@{ TableName = "Server 1"; Name = "G:\"; Link = "http://example.com/G"; "TotalSize" = "576 Gb"; "UsedSpace" = "575.00 Gb"; "FreeSpace" = "1.00 Gb"; "PercentFree" = "0.17 %" }
 )
 
 $object2 = @(
-    [PSCustomObject]@{ TableName = "Server 2"; Name = "Server2"; "TotalSize" = "580 Gb"; "UsedSpace" = "224.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "19 %" }
+    [PSCustomObject]@{ TableName = "Server 2"; Name = "Server2"; Link = "http://example.com/Server2"; "TotalSize" = "580 Gb"; "UsedSpace" = "224.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "19 %" }
 )
 
 $object3 = @(
-    [PSCustomObject]@{ TableName = "Server 3"; Name = "Server3"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "38 %" }
+    [PSCustomObject]@{ TableName = "Server 3"; Name = "Server3"; Link = "http://example.com/Server3"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "38 %" }
 )
 
 $object4 = @(
-    [PSCustomObject]@{ TableName = "Server 4"; Name = "Server4"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "78 %" }
+    [PSCustomObject]@{ TableName = "Server 4"; Name = "Server4"; Link = "http://example.com/Server4"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "78 %" }
 )
+
+# Define description and footer text
+$Description = "This report shows the disk usage details for multiple servers."
+$FooterText = "Generated by the PowerShell script."
 
 # Build report with custom objects
 $T = Build-HTMLReport -CustomObjects @($object1, $object2, $object3, $object4) -Description $Description -FooterText $FooterText
