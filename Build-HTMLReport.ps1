@@ -50,54 +50,43 @@ $Description
     <div class="table-container">
         <h2>$tableName</h2>
         <table>
-            <tr>
 "@
 
-        # Add table headers based on properties of the first object
-        foreach ($property in $objectGroup[0].PSObject.Properties.Name) {
-            if ($property -notin @('TableName', 'Link')) {
-                $html += "<th>$property</th>"
-            }
-        }
-        $html += "</tr>"
-
-        # Add rows of data for each custom object
-        foreach ($row in $objectGroup) {
-            $html += "<tr>"
-            foreach ($property in $row.PSObject.Properties.Name) {
-                if ($property -ne 'TableName' -and $property -ne 'Link') {
-                    $value = $row.$property
-
-                    # If this is the Name property and there's a Link property, create a hyperlink
-                    if ($property -eq 'Name' -and $row.PSObject.Properties.Match('Link')) {
-                        $link = $row.Link
-                        $html += "<td><a href='$link' target='_blank'>$value</a></td>"
-                    } else {
-                        # Apply conditional formatting based on specific thresholds for "PercentFree"
-                        $cellClass = ""
-                        if ($property -eq "PercentFree") {
-                            $percentValue = [double]($value -replace '[^0-9.]', '')  # Extract numeric part, handle decimal
-
-                            if ($percentValue -ge 0 -and $percentValue -le 20) {
-                                $cellClass = "red"
-                            } elseif ($percentValue -gt 20 -and $percentValue -le 30) {
-                                $cellClass = "yellow"
-                            } elseif ($percentValue -gt 30 -and $percentValue -le 40) {
-                                $cellClass = "green"
-                            }
-                        }
-
-                        # Add table cell with conditional formatting
-                        if ($cellClass) {
-                            $html += "<td class='$cellClass'>$value</td>"
-                        } else {
-                            $html += "<td>$value</td>"
-                        }
-                    }
+        # If it's a ServiceNow table, display the link in the left column and leave the right column empty
+        if ($tableName -eq "ServiceNow") {
+            foreach ($row in $objectGroup) {
+                if ($row.PSObject.Properties.Match('Link')) {
+                    $link = $row.Link
+                    $html += "<tr><td><a href='$link' target='_blank'>$link</a></td><td></td></tr>"
                 }
             }
-            $html += "</tr>"
+        } else {
+            # Add rows of data for each custom object (formatted vertically with property name on the left, value on the right)
+            foreach ($row in $objectGroup) {
+                $properties = $row.PSObject.Properties | Where-Object { $_.Name -notin @('TableName', 'Link', 'Threshold') }
+                
+                foreach ($property in $properties) {
+                    $propertyName = $property.Name  # Correctly capture the property name
+                    $value = $row.$($property.Name)  # Capture the property value
+
+                    # Apply color coding based on 'Threshold'
+                    $cellClass = ""
+                    if ($row.PSObject.Properties.Match('Threshold')) {
+                        $threshold = $row.Threshold
+                        switch ($threshold) {
+                            "High" { $cellClass = "red" }
+                            "Medium" { $cellClass = "yellow" }
+                            "Low" { $cellClass = "green" }
+                            default { $cellClass = "" }  # No coloring if threshold is blank or not defined
+                        }
+                    }
+
+                    # Add table row: Property name on the left, value on the right
+                    $html += "<tr><td class='$cellClass'>$propertyName</td><td class='$cellClass'>$value</td></tr>"
+                }
+            }
         }
+
         $html += "</table></div>"
     }
 
@@ -121,40 +110,37 @@ $FooterText
 }
 
 
-# Create example custom objects with a TableName property and hyperlinks
-$INC = "http://ServiceNow.com/Inc"
-$CHG = "http://ServiceNow.com/CHG"
-
+# Example custom objects with dynamic tables and Thresholds for color coding
 $object1 = @(
-    [PSCustomObject]@{ TableName = "Server 1"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "29 %" },
-    [PSCustomObject]@{ TableName = "Server 1"; "TotalSize" = "576 Gb"; "UsedSpace" = "300.50 Gb"; "FreeSpace" = "275.50 Gb"; "PercentFree" = "48 %" },
-    [PSCustomObject]@{ TableName = "Server 1"; "TotalSize" = "576 Gb"; "UsedSpace" = "450.00 Gb"; "FreeSpace" = "126.00 Gb"; "PercentFree" = "21 %" },
-    [PSCustomObject]@{ TableName = "Server 1"; "TotalSize" = "576 Gb"; "UsedSpace" = "575.00 Gb"; "FreeSpace" = "1.00 Gb"; "PercentFree" = "0.17 %" }
+    [PSCustomObject]@{ TableName = "MARRS"; "TotalSize" = "576 Gb"; "UsedSpace" = "255.62 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "29 %"; Threshold = "Medium" },
+    [PSCustomObject]@{ TableName = "MARRS"; "TotalSize" = "576 Gb"; "UsedSpace" = "300.50 Gb"; "FreeSpace" = "275.50 Gb"; "PercentFree" = "48 %"; Threshold = "Low" },
+    [PSCustomObject]@{ TableName = "MARRS"; "TotalSize" = "576 Gb"; "UsedSpace" = "450.00 Gb"; "FreeSpace" = "126.00 Gb"; "PercentFree" = "21 %"; Threshold = "Medium" },
+    [PSCustomObject]@{ TableName = "MARRS"; "TotalSize" = "576 Gb"; "UsedSpace" = "575.00 Gb"; "FreeSpace" = "1.00 Gb"; "PercentFree" = "0.17 %"; Threshold = "High" }
 )
 
 $object2 = @(
-    [PSCustomObject]@{ TableName = "Server 2"; Name = "Server2"; "TotalSize" = "580 Gb"; "UsedSpace" = "224.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "19 %" }
+    [PSCustomObject]@{ TableName = "PZL"; "Count" = "213"; "Dead Count" = "10"; "TCP Check" = "Good"; "Partition" = "236541"; Threshold = "High" },
+    [PSCustomObject]@{ TableName = "PZL"; "Count" = "13"; "Dead Count" = "1"; "TCP Check" = "Good"; "Partition" = "236541"; Threshold = "Low" },
+    [PSCustomObject]@{ TableName = "PZL"; "Count" = "213"; "Dead Count" = "10"; "TCP Check" = "Good"; "Partition" = "236541"; Threshold = "Medium" },
+    [PSCustomObject]@{ TableName = "PZL"; "Count" = "213"; "Dead Count" = "10"; "TCP Check" = "Good"; "Partition" = "236541"; Threshold = "High" }
 )
 
 $object3 = @(
-    [PSCustomObject]@{ TableName = "Server 3"; Name = "Server3"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "38 %" }
+    [PSCustomObject]@{ TableName = "Server 3"; Name = "Server3"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "38 %"; Threshold = "Low" }
 )
 
 $object4 = @(
-    [PSCustomObject]@{ TableName = "Server 4"; Name = "Server4"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "78 %" }
+    [PSCustomObject]@{ TableName = "Server 4"; Name = "Server4"; "TotalSize" = "580 Gb"; "UsedSpace" = "124.38 Gb"; "FreeSpace" = "321.16 Gb"; "PercentFree" = "78 %"; Threshold = "Low" }
 )
 
 $Static1 = @(
-    [PSCustomObject]@{ TableName = "ServiceNow"; Name = "ServiceNow Incident Queue"; Link = "$INC" }
-)
-
-$Static2 = @(
-    [PSCustomObject]@{ TableName = "ServiceNow"; Name = "ServiceNow Change Queue"; Link = "$CHG" }
+    [PSCustomObject]@{ TableName = "ServiceNow"; Name = "ServiceNow Incident Queue"; Link = "http://ServiceNow.com/Inc"; "Verified" = "" },
+    [PSCustomObject]@{ TableName = "ServiceNow"; Name = "ServiceNow Change Queue"; Link = "http://ServiceNow.com/CHG" ; "Verified" = "" }
 )
 
 # Define description and footer text
-$Description = "This report shows the disk usage details for multiple servers."
+$Description = "This report shows the disk usage details for multiple servers with dynamic thresholds for color coding."
 $FooterText = "Generated by the PowerShell script."
 
 # Build report with custom objects, including ServiceNow objects
-$T = Build-HTMLReport -CustomObjects @($object1, $object2, $object3, $object4, $Static1, $Static2) -Description $Description -FooterText $FooterText
+$T = Build-HTMLReport -CustomObjects @($object1, $object2, $object3, $object4, $Static1) -Description $Description -FooterText $FooterText
