@@ -238,3 +238,13 @@ $FooterText
     Write-Host "HTML report generated at $OutputPath"
     return $html
 }
+
+<#
+
+foreach ($obj in $AllObjects) {
+    Add-Member -InputObject $obj -MemberType NoteProperty -Name 'Dead Servers' -Value ''
+    Add-Member -InputObject $obj -MemberType NoteProperty -Name 'Search Status' -Value ''
+    Add-Member -InputObject $obj -MemberType NoteProperty -Name 'UI Check' -Value ''
+}
+
+#>
