@@ -273,3 +273,183 @@ $FooterText
     Write-Host "HTML report generated at $OutputPath"
     return $html
 }
+
+<#
+JSON
+
+{
+  "Thresholds": {
+    "CA2015": [
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=189"
+      },
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      },
+      {
+        "PropertyName": "Active_Search_Partition_Count",
+        "Green": "<300000000",
+        "Yellow": ">=3000000001 && <379999999",
+        "Red": "<380000000"
+      },
+      {
+        "PropertyName": "DBQueue Status 0",
+        "Red": ">1000000"
+      },
+      {
+        "PropertyName": "DBQueue Status 284"
+        /* No color rules yet */
+      },
+      {
+        "PropertyName": "DBQueue Status 286"
+        /* No color rules yet */
+      },
+      {
+        "PropertyName": "DBQueue Status 5000"
+        /* No color rules yet */
+      }
+    ],
+
+    "PA": [
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=39"
+      },
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      },
+      {
+        "PropertyName": "MTA_Monitor",
+        "Red": "=0"
+      },
+      {
+        "PropertyName": "Active_Search_Partition_Count",
+        "Green": "<300000000",
+        "Yellow": ">=3000000001 && <379999999",
+        "Red": "<380000000"
+      }
+    ],
+    
+    "MARRS": [
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=105"
+      },
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      }
+    ],
+    
+    "PZL": [
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      },
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=13"
+      }
+    ],
+    
+    "1ZLA": [
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      },
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=80"
+      }
+    ],
+    
+    "AGE": [
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      },
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=8"
+      }
+    ],
+    
+    "DI": [
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=38"
+      },
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      }
+    ],
+    
+    "HI": [
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=49"
+      },
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      }
+    ],
+    
+    "CB": [
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=24"
+      },
+      {
+        "PropertyName": "MTA_Monitor",
+        "Red": "=0"
+      },
+      {
+        "PropertyName": "Active_Search_Partition_Count",
+        "Green": "<300000000",
+        "Yellow": ">=3000000001 && <379999999",
+        "Red": "<380000000"
+      },
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      }
+    ],
+    
+    "CA2022": [
+      {
+        "PropertyName": "Live Servers",
+        "Red": "!=230"
+      },
+      {
+        "PropertyName": "TIPSyncDate",
+        "Red": "olderThan7Days"
+      },
+      {
+        "PropertyName": "MTA_Monitor",
+        /* Example: Yellow if in [1..10], Red if >10
+           => ">=1 && <=10" for Yellow, etc.
+           Adjust to the exact logic you want. */
+        "Yellow": ">=1 && <=10",
+        "Red": ">10"
+      },
+      {
+        "PropertyName": "Active_Search_Partition_Count",
+        "Green": "<300000000",
+        "Yellow": ">=3000000001 && <379999999",
+        "Red": "<380000000"
+      },
+      {
+        "PropertyName": "Queueing",
+        "Red": ">0"
+      }
+    ]
+  }
+}
+
+
+#>
