@@ -19,7 +19,7 @@
         [string]$FooterText                  # Passed as a parameter
     )
 
-    # Ensure $Script:Config.Thresholds is loaded earlier in the script
+    # Ensure $Script:Config.Thresholds and $Script:Config.email are loaded earlier in the script
     # Example:
     # $Script:Config = ConvertFrom-Json (Get-Content "C:\Path\Thresholds.json" -Raw)
 
@@ -228,9 +228,9 @@
     # Start Building the HTML Report
     #----------------------------------------------------------------
     # Determine Day, Date, and AM/PM based on current time
-    $currentDay = (Get-Date).ToString("dddd")          # Full day name, e.g., "Monday"
-    $currentDate = (Get-Date).ToString("dd MMMM yyyy") # Date in "DD Month YYYY", e.g., "27 October 2025"
-    $timePart = (Get-Date).ToString("tt")              # Returns "AM" or "PM"
+    $currentDay = (Get-Date).ToString("dddd")             # Full day name, e.g., "Monday"
+    $currentDate = (Get-Date).ToString("dd MMMM yyyy")   # Date in "DD Month YYYY", e.g., "27 October 2025"
+    $timePart = (Get-Date).ToString("tt")                 # Returns "AM" or "PM"
 
     # Build the Email Header
     $emailHeader = "ZL $timePart Shift Turnover - $currentDay $currentDate"
@@ -324,5 +324,28 @@
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
     $html | Out-File -FilePath $OutputPath -Encoding utf8
     Write-Host "HTML report generated at $OutputPath"
+
+    #----------------------------------------------------------------
+    # Send the Email
+    #----------------------------------------------------------------
+    # Construct the email subject dynamically
+    $emailSubject = "ZL $timePart Shift Turnover - $currentDay $currentDate"
+
+    try {
+        Send-MailMessage `
+            -SmtpServer $Script:Config.email.smtp `
+            -To $Script:Config.email.to `
+            -From $Script:Config.email.from `
+            -Subject $emailSubject `
+            -Body $html `
+            -BodyAsHtml `
+            -ErrorAction Stop
+
+        Write-Host "Email sent successfully to $($Script:Config.email.to)"
+    }
+    catch {
+        Write-Host "ERROR: Failed to send email. $_"
+    }
+
     return $html
 }
