@@ -1,31 +1,42 @@
 ﻿function Build-HTMLReport {
     param(
-        [PSCustomObject[]]$AllObjects,        # The objects needing color-coded tables
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject[]]$AllObjects,  # Each object => one table with 2 columns
         [string]$Description,
         [string]$FooterText
     )
 
+    # Ensure $Script:Config.Thresholds is loaded earlier in the script
+
     #----------------------------------------------------------------
-    # Helper: Evaluate numeric conditions like "<50", ">=100 && <200",
-    # or "!=189". Return "red"/"yellow"/"green"/"none".
-    # (You can expand this for date logic, "olderThan7Days", etc.)
+    # Helper for color logic. Checks $Script:Config.Thresholds[envName]
+    # for a rule matching the property name, then sets .green/.yellow/.red
+    # or .none if no match or condition fails.
     #----------------------------------------------------------------
     function Get-CellClass {
         param(
+            [string]$Environment,
             [string]$PropName,
-            [string]$PropValue,
-            [Object[]]$EnvRules
+            [string]$PropValue
         )
 
-        $cellClass = "none"  # default no color
+        # Default => no color
+        $cellClass = "none"
 
-        # 1) Find matching rule block
-        $ruleBlock = $EnvRules | Where-Object { $_.PropertyName -eq $PropName }
-        if (-not $ruleBlock) {
-            return $cellClass  # no rule => no color
+        # 1) Get environment's rule array
+        $envRules = $Script:Config.Thresholds[$Environment]
+        if (-not $envRules) {
+            return $cellClass  # environment not in JSON => no color
         }
 
-        # 2) Possibly parse numeric. For date logic, you can do special checks:
+        # 2) Find a rule for this property
+        $ruleBlock = $envRules | Where-Object { $_.PropertyName -eq $PropName }
+        if (-not $ruleBlock) {
+            return $cellClass  # no rule for this property => no color
+        }
+
+        # Possibly parse numeric logic (like "<50", "!=189"). For date logic
+        # or custom "olderThan7Days", you can do special checks below.
         $numericVal = ($PropValue -replace '[^0-9\.]', '')
         [double]$num = 0
         [double]::TryParse($numericVal, [ref]$num) | Out-Null
@@ -49,7 +60,7 @@
             }
         }
 
-        # Check in order: Green => Yellow => Red
+        # Evaluate Green => Yellow => Red if defined
         if ($ruleBlock.Green) {
             if (Test-Condition $num ($ruleBlock.Green)) {
                 $cellClass = "green"
@@ -61,7 +72,12 @@
             }
         }
         if ($ruleBlock.Red -and $cellClass -eq "none") {
-            if (Test-Condition $num ($ruleBlock.Red)) {
+            # For special keys like "olderThan7Days", handle that logic here
+            if ($ruleBlock.Red -eq "olderThan7Days") {
+                # e.g. parse date & compare to (Get-Date).AddDays(-7)
+                # but for now, ignoring date logic
+            }
+            elseif (Test-Condition $num ($ruleBlock.Red)) {
                 $cellClass = "red"
             }
         }
@@ -70,7 +86,8 @@
     }
 
     #----------------------------------------------------------------
-    # Start building HTML
+    # Start building the HTML
+    # One .table-container per PSCustomObject => 2 col table
     #----------------------------------------------------------------
     $html = @"
 <!DOCTYPE html>
@@ -101,63 +118,33 @@
 <div class="container">
 "@
 
-    #----------------------------------------------------------------
-    # Group $AllObjects by "Environment" property
-    #----------------------------------------------------------------
-    $groups = $AllObjects | Group-Object -Property Environment
+    # For each PSCustomObject => a separate table
+    foreach ($obj in $AllObjects) {
+        # 1) Retrieve the environment from the object
+        $envName = $obj.Environment  # e.g. "CA2015", "PA", "CB", etc.
 
-    foreach ($group in $groups) {
-        $envName = $group.Name   # e.g. "CA2015"
-        
-        # Lookup that environment's rules from $Script:Config
-        $envRules = $Script:Config.Thresholds[$envName]
-        if (-not $envRules) {
-            Write-Host "No threshold rules found for environment '$envName'"
-        }
+        # 2) We'll display the object's 'Name' property as the table heading
+        $tableHeading = $obj.Name
 
-        # Build one table for all objects in this environment
-        $html += "<div class='table-container'>"
-        $html += "<h2>$envName</h2>"
-        $html += "<table>"
+        # Build the <table>
+        $html += @"
+<div class="table-container">
+  <h2>$tableHeading</h2>
+  <table>
+"@
 
-        # Collect union of property names from all objects
-        $allProps = $group.Group | ForEach-Object {
-            $_.PSObject.Properties.Name
-        } | Select-Object -Unique
+        # Row per property => 2 columns: PropName | Value
+        foreach ($prop in $obj.PSObject.Properties) {
+            # Skip the 'Name' & 'Environment' props from the table if you want
+            if ($prop.Name -in @('Name','Environment')) { continue }
 
-        # Table header row
-        $html += "<tr>"
-        $html += "<th>Name</th>"  # if you want a specific Name column
-        foreach ($p in $allProps) {
-            if ($p -ne 'Environment' -and $p -ne 'Name') {
-                $html += "<th>$p</th>"
-            }
-        }
-        $html += "</tr>"
+            $propName  = $prop.Name
+            $propValue = $prop.Value
+            # Check color
+            $cellClass = Get-CellClass -Environment $envName -PropName $propName -PropValue $propValue
 
-        # Table rows
-        foreach ($obj in $group.Group) {
-            $html += "<tr>"
-
-            # Name cell
-            $objName = $obj.Name
-            $html += "<td>$objName</td>"
-
-            # Other props
-            foreach ($p in $allProps) {
-                if ($p -eq 'Environment' -or $p -eq 'Name') { continue }
-                $val = $obj.$p
-                $colorClass = "none"
-
-                # If we have thresholds for this environment, do color check
-                if ($envRules) {
-                    $colorClass = Get-CellClass -PropName $p -PropValue $val -EnvRules $envRules
-                }
-
-                $html += "<td class='$colorClass'>$val</td>"
-            }
-
-            $html += "</tr>"
+            # Build row
+            $html += "<tr><td>$propName</td><td class='$cellClass'>$propValue</td></tr>"
         }
 
         $html += "</table></div>"
@@ -166,12 +153,13 @@
     $html += @"
 </div>
 <pre>$FooterText</pre>
-</body></html>
+</body>
+</html>
 "@
 
-    # Save or return HTML
+    # Write file
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
-    $html | Out-File -FilePath $OutputPath -Encoding utf8
+    $html | Out-File $OutputPath -Encoding utf8
     Write-Host "HTML report generated at $OutputPath"
     return $html
 }
