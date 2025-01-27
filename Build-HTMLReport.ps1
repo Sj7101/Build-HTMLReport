@@ -300,18 +300,14 @@ JSON
       },
       {
         "PropertyName": "DBQueue Status 284"
-        /* No color rules yet */
       },
       {
         "PropertyName": "DBQueue Status 286"
-        /* No color rules yet */
       },
       {
         "PropertyName": "DBQueue Status 5000"
-        /* No color rules yet */
       }
     ],
-
     "PA": [
       {
         "PropertyName": "Live Servers",
@@ -332,7 +328,6 @@ JSON
         "Red": "<380000000"
       }
     ],
-    
     "MARRS": [
       {
         "PropertyName": "Live Servers",
@@ -343,7 +338,6 @@ JSON
         "Red": ">0"
       }
     ],
-    
     "PZL": [
       {
         "PropertyName": "Queueing",
@@ -354,7 +348,6 @@ JSON
         "Red": "!=13"
       }
     ],
-    
     "1ZLA": [
       {
         "PropertyName": "Queueing",
@@ -365,7 +358,6 @@ JSON
         "Red": "!=80"
       }
     ],
-    
     "AGE": [
       {
         "PropertyName": "Queueing",
@@ -376,7 +368,6 @@ JSON
         "Red": "!=8"
       }
     ],
-    
     "DI": [
       {
         "PropertyName": "Live Servers",
@@ -387,7 +378,6 @@ JSON
         "Red": ">0"
       }
     ],
-    
     "HI": [
       {
         "PropertyName": "Live Servers",
@@ -398,7 +388,6 @@ JSON
         "Red": ">0"
       }
     ],
-    
     "CB": [
       {
         "PropertyName": "Live Servers",
@@ -419,7 +408,6 @@ JSON
         "Red": ">0"
       }
     ],
-    
     "CA2022": [
       {
         "PropertyName": "Live Servers",
@@ -431,9 +419,6 @@ JSON
       },
       {
         "PropertyName": "MTA_Monitor",
-        /* Example: Yellow if in [1..10], Red if >10
-           => ">=1 && <=10" for Yellow, etc.
-           Adjust to the exact logic you want. */
         "Yellow": ">=1 && <=10",
         "Red": ">10"
       },
