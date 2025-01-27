@@ -1,100 +1,137 @@
 ﻿function Build-HTMLReport {
     param(
-        [Parameter(Mandatory = $true)]
-        [PSCustomObject[]]$AllObjects,   # One table: "All Objects"
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject[]]
+        $AllObjects,   # multiple object => multiple separate tables
 
-        [Parameter(Mandatory = $false)]
-        [PSCustomObject[]]$ServiceNow,   # One table: "Service Now Queue"
+        [Parameter(Mandatory=$false)]
+        [PSCustomObject[]]
+        $ServiceNow,   # single table for all items
 
-        [Parameter(Mandatory = $false)]
-        [PSCustomObject[]]$Patching,     # One table: "Patching"
+        [Parameter(Mandatory=$false)]
+        [PSCustomObject[]]
+        $Patching,     # single table for all items
 
         [string]$Description,
         [string]$FooterText
     )
 
-    #---------------------------------------------------------------------------
-    # Helper: Builds one HTML table from an array of PSCustomObjects
-    # (all items in one table). Each PSCustomObject => one row.
-    #---------------------------------------------------------------------------
-    function Build-OneTable {
+    #-----------------------------------------------------------------
+    # Helper 1: Build multiple small tables (one per object)
+    #           => For $AllObjects array
+    #-----------------------------------------------------------------
+    function Build-MultiObjectTables {
+        param(
+            [PSCustomObject[]]$ObjArray,
+            [string]$SectionHeading
+        )
+
+        # If $ObjArray is null or empty, return nothing
+        if (!$ObjArray -or $ObjArray.Count -eq 0) {
+            return ""
+        }
+
+        $htmlBlock = @"
+    <div style="width:100%">
+        <h1>$SectionHeading</h1>
+    </div>
+"@
+
+        # Each item => one table
+        foreach ($obj in $ObjArray) {
+            # Use the object's 'Name' property (if any) as a sub-heading
+            $tableHeading = $obj.Name
+
+            $htmlBlock += @"
+    <div class="table-container">
+        <h2>$tableHeading</h2>
+        <table>
+"@
+
+            # Build a row for each property => (PropertyName | Value)
+            foreach ($prop in $obj.PSObject.Properties) {
+                if ($prop.Name -eq 'Name') {
+                    # We already used Name as <h2>, skip repeating
+                    continue
+                }
+
+                $propName  = $prop.Name
+                $propValue = $prop.Value
+
+                $htmlBlock += "<tr><td>$propName</td><td>$propValue</td></tr>"
+            }
+            $htmlBlock += "</table></div>"
+        }
+
+        return $htmlBlock
+    }
+
+    #-----------------------------------------------------------------
+    # Helper 2: Build exactly ONE table from an array of PSCustomObjects
+    #           => For $ServiceNow, $Patching, etc.
+    #           => Each item => one row, each property => one column
+    #-----------------------------------------------------------------
+    function Build-SingleTable {
         param(
             [PSCustomObject[]]$Data,
             [string]$Heading
         )
 
-        # If array is empty or not provided, return nothing
-        if (!$Data -or $Data.Count -eq 0) { 
+        # If array is null/empty, return nothing
+        if (!$Data -or $Data.Count -eq 0) {
             return ""
         }
 
-        # Gather all property names from these objects for columns
-        $allProps = $Data | ForEach-Object {
-            $_.PSObject.Properties.Name
-        } | Select-Object -Unique
+        # Gather all property names for columns
+        $allProps = $Data |
+            ForEach-Object { $_.PSObject.Properties.Name } |
+            Select-Object -Unique
 
-        # Start the table HTML
-        $tableHtml = @"
-    <div class="table-container">
-        <h2>$Heading</h2>
+        # Start the table
+        $block = @"
+    <div style="width:100%">
+        <h1>$Heading</h1>
+    </div>
+    <div class="table-container" style="width:100%">
         <table>
             <tr>
 "@
-
-        # Table headers
-        foreach ($propName in $allProps) {
-            $tableHtml += "<th>$propName</th>"
+        # Headers
+        foreach ($p in $allProps) {
+            $block += "<th>$p</th>"
         }
-        $tableHtml += "</tr>"
+        $block += "</tr>"
 
-        # One row per PSCustomObject in $Data
+        # One row per object
         foreach ($obj in $Data) {
-            $tableHtml += "<tr>"
-            foreach ($propName in $allProps) {
-                $value = $obj.$propName
-                $tableHtml += "<td>$value</td>"
+            $block += "<tr>"
+            foreach ($p in $allProps) {
+                $value = $obj.$p
+                $block += "<td>$value</td>"
             }
-            $tableHtml += "</tr>"
+            $block += "</tr>"
         }
-
-        $tableHtml += "</table></div>"
-        return $tableHtml
+        $block += "</table></div>"
+        return $block
     }
 
-    #---------------------------------------------------------------------------
-    # Begin the full HTML document
-    #---------------------------------------------------------------------------
+    #-----------------------------------------------------------------
+    # Start building the main HTML
+    #-----------------------------------------------------------------
     $html = @"
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <title>Custom HTML Report</title>
     <style>
         body { font-family: Arial, sans-serif; }
         .container { display: flex; flex-wrap: wrap; }
-        .table-container {
-            width: 48%;
-            margin: 1%;
-            box-sizing: border-box;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid black;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        pre {
-            white-space: pre-wrap;
-            font-size: 16px;
-        }
+        .table-container { width: 48%; margin: 1%; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        pre { white-space: pre-wrap; font-size: 16px; }
     </style>
 </head>
 <body>
@@ -107,30 +144,33 @@ $Description
 <div class="container">
 "@
 
-    # 1) One table for $AllObjects
-    $html += Build-OneTable -Data $AllObjects -Heading "All Objects"
+    # 1) $AllObjects => MULTIPLE tables, 2-wide layout
+    $html += Build-MultiObjectTables -ObjArray $AllObjects -SectionHeading "All Objects"
 
-    # 2) One table for $ServiceNow
-    $html += Build-OneTable -Data $ServiceNow -Heading "Service Now Queue"
+    # 2) $ServiceNow => ONE table with multiple rows (if multiple items)
+    if ($ServiceNow) {
+        $html += Build-SingleTable -Data $ServiceNow -Heading "ServiceNow"
+    }
 
-    # 3) One table for $Patching
-    $html += Build-OneTable -Data $Patching -Heading "Patching"
+    # 3) $Patching => ONE table with multiple rows
+    if ($Patching) {
+        $html += Build-SingleTable -Data $Patching -Heading "Patching"
+    }
 
-    #---------------------------------------------------------------------------
-    # Close container + add footer + end HTML
-    #---------------------------------------------------------------------------
+    #-----------------------------------------------------------------
+    # Close container + add footer
+    #-----------------------------------------------------------------
     $html += @"
 </div>
 
 <pre>
 $FooterText
 </pre>
-
 </body>
 </html>
 "@
 
-    # Output to file & return the HTML
+    # Write file & return HTML
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
     $html | Out-File -FilePath $OutputPath -Encoding utf8
     Write-Host "HTML report generated at $OutputPath"
