@@ -23,46 +23,75 @@
     #-----------------------------------------------------------------
     # 1) Build-MultiObjectTables (for $AllObjects)
     #-----------------------------------------------------------------
-    function Build-MultiObjectTables {
-        param(
-            [PSCustomObject[]]$ObjArray,
-            [string]$SectionHeading
-        )
+function Build-MultiObjectTables {
+    param(
+        [PSCustomObject[]]$ObjArray,
+        [string]$SectionHeading
+    )
 
-        if (!$ObjArray -or $ObjArray.Count -eq 0) {
-            return ""
-        }
+    if (!$ObjArray -or $ObjArray.Count -eq 0) {
+        return ""
+    }
 
-        # Big heading for the $AllObjects section
-        $htmlBlock = @"
+    $htmlBlock = @"
     <div style="width:100%">
         <h1>$SectionHeading</h1>
     </div>
 "@
 
-        # Each PSCustomObject => a separate table
-        foreach ($obj in $ObjArray) {
-            # We'll show the object's Name property (if any) as <h2>
-            $tableHeading = $obj.Name
+    foreach ($obj in $ObjArray) {
+        $envName = $obj.Environment
+        if (-not $envName) { continue }
 
-            $htmlBlock += @"
+        # Grab the rules for this environment
+        $rules = $Script:Config.Thresholds.$envName
+
+        $tableHeading = $obj.Name
+        $htmlBlock += @"
     <div class="table-container">
         <h2>$tableHeading</h2>
         <table>
 "@
-            # Each property => (PropertyName | Value) row
-            foreach ($prop in $obj.PSObject.Properties) {
-                if ($prop.Name -eq 'Name') { continue }
-                $propName  = $prop.Name
-                $propValue = $prop.Value
-                $htmlBlock += "<tr><td>$propName</td><td>$propValue</td></tr>"
+
+        foreach ($prop in $obj.PSObject.Properties) {
+            if ($prop.Name -eq 'Name') { continue }
+
+            $propName = $prop.Name
+            $propValue = $prop.Value
+            $cellClass = "none"  # default
+
+            # Find any matching rule object, e.g. { PropertyName='TIPSyncDate', Red='olderThan7Days' }
+            $rule = $rules | Where-Object { $_.PropertyName -eq $propName }
+            if ($rule) {
+                # For each color condition in [Green,Yellow,Red], check if it matches the "date" rule
+                # We'll do an example for the Red case:
+                if ($rule.Red -eq "olderThan7Days") {
+                    # parse $propValue to a [datetime] if possible
+                    try {
+                        $dateVal = [datetime] $propValue
+                        # If it's older than 7 days => set Red
+                        if ($dateVal -lt (Get-Date).AddDays(-7)) {
+                            $cellClass = "red"
+                        }
+                    }
+                    catch {
+                        # If parse fails, you might keep it 'none'
+                        # or default to red if you want
+                    }
+                }
+                # Also handle other numeric logic for $rule.Red / .Green / .Yellow if needed...
             }
 
-            $htmlBlock += "</table></div>"
+            # Finally add the row with the assigned color class
+            $htmlBlock += "<tr><td>$propName</td><td class='$cellClass'>$propValue</td></tr>"
         }
 
-        return $htmlBlock
+        $htmlBlock += "</table></div>"
     }
+
+    return $htmlBlock
+}
+
 
     #-----------------------------------------------------------------
     # 2) Build-SingleTableNoLinks (for $Patching)
@@ -175,6 +204,12 @@
         return $block
     }
 
+    foreach ($obj in $AllObjects) {
+    Add-Member -InputObject $obj -MemberType NoteProperty -Name 'Dead Servers' -Value ''
+    Add-Member -InputObject $obj -MemberType NoteProperty -Name 'Search Status' -Value ''
+    Add-Member -InputObject $obj -MemberType NoteProperty -Name 'UI Check' -Value ''
+}
+
     #-----------------------------------------------------------------
     # Build the final HTML
     #-----------------------------------------------------------------
@@ -238,13 +273,3 @@ $FooterText
     Write-Host "HTML report generated at $OutputPath"
     return $html
 }
-
-<#
-
-foreach ($obj in $AllObjects) {
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name 'Dead Servers' -Value ''
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name 'Search Status' -Value ''
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name 'UI Check' -Value ''
-}
-
-#>
