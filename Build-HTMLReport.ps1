@@ -1,35 +1,38 @@
 ﻿function Build-HTMLReport {
     param(
-        # This array is for your “Main Items,” each PSCustomObject gets its own table (2-wide).
-        [Parameter(Mandatory = $true)]
-        [PSCustomObject[]]$CustomObjects,
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject[]]
+        $CustomObjects,   # multiple objects -> each gets its own table, 2-wide
 
-        # Each of these are arrays of PSCustomObjects.
-        # We will build exactly ONE table per array.
-        [Parameter(Mandatory = $false)]
-        [PSCustomObject[]]$ServiceNow,
-        
-        [Parameter(Mandatory = $false)]
-        [PSCustomObject[]]$TASKS,
-        
-        [Parameter(Mandatory = $false)]
-        [PSCustomObject[]]$PATCHING,
+        [Parameter(Mandatory=$false)]
+        [PSCustomObject[]]
+        $ServiceNow,      # single table with multiple rows (if >1 items)
+
+        [Parameter(Mandatory=$false)]
+        [PSCustomObject[]]
+        $TASKS,           # single table
+
+        [Parameter(Mandatory=$false)]
+        [PSCustomObject[]]
+        $PATCHING,        # single table
 
         [string]$Description,
         [string]$FooterText
     )
 
-    #------------------------------------------------------------------
-    # Helper 1: Build multiple tables (one per object) for the main array
-    #           => "2-wide" layout using flex.
-    #------------------------------------------------------------------
+    #-----------------------------------------------------------------
+    # Helper 1: Build multiple tables (one per object) for $CustomObjects
+    #           => 2-wide layout using CSS flex + .table-container {width: 48%}
+    #-----------------------------------------------------------------
     function Build-MultiObjectTables {
         param(
             [PSCustomObject[]]$ObjArray,
             [string]$SectionHeading
         )
 
-        if (!$ObjArray -or $ObjArray.Count -eq 0) { return "" }
+        if (!$ObjArray -or $ObjArray.Count -eq 0) {
+            return ""
+        }
 
         $htmlBlock = @"
     <div style="width:100%">
@@ -38,7 +41,7 @@
 "@
 
         foreach ($obj in $ObjArray) {
-            # If each object has TableName or Name, you can decide which to show as <h2>
+            # Use the 'Name' property as <h2> heading if present
             $tableHeading = $obj.Name
 
             $htmlBlock += @"
@@ -46,36 +49,40 @@
         <h2>$tableHeading</h2>
         <table>
 "@
-
-            # Build 2 columns: PropertyName | Value
+            # Each property -> one row of "PropertyName | Value"
             foreach ($prop in $obj.PSObject.Properties) {
-                if ($prop.Name -eq 'Name' -or $prop.Name -eq 'TableName') {
-                    # We skip the 'Name' property since we used it as heading.
-                    # We skip 'TableName' so it doesn't appear as a column.
-                    continue
-                }
+                # Skip the 'Name' property if you don't want it repeated in the table
+                if ($prop.Name -eq 'Name') { continue }
 
                 $propName  = $prop.Name
                 $propValue = $prop.Value
 
-                # Convert link fields named Link or URL into <a> with the object’s Name
+                # Example: Convert Link or URL properties into clickable text
                 if ($propName -in @('Link','URL')) {
-                    $propValue = "<a href='$propValue' target='_blank'>$($obj.Name)</a>"
+                    # Use the same object's Name as the link text
+                    $linkText = if ($obj.PSObject.Properties.Name -contains 'Name') {
+                        $obj.Name
+                    } else {
+                        $propValue  # fallback if no Name property
+                    }
+                    $propValue = "<a href='$propValue' target='_blank'>$linkText</a>"
                 }
 
                 $htmlBlock += "<tr><td>$propName</td><td>$propValue</td></tr>"
             }
+
             $htmlBlock += "</table></div>"
         }
 
         return $htmlBlock
     }
 
-    #------------------------------------------------------------------
+    #-----------------------------------------------------------------
     # Helper 2: Build ONE table from an array of PSCustomObjects
-    #           => All objects in a single table with multiple rows.
-    #           => The table heading is from the first object's TableName (if present).
-    #------------------------------------------------------------------
+    #           => Each object is a row, each property is a column
+    #           => Table heading from first object's TableName (if present),
+    #              otherwise "Untitled Table"
+    #-----------------------------------------------------------------
     function Build-SingleTable {
         param(
             [PSCustomObject[]]$ObjArray
@@ -85,33 +92,32 @@
             return ""
         }
 
-        # Use the first object's TableName (if present) as the table's heading
+        # Use the TableName property of the first object if it exists
         $firstObj = $ObjArray[0]
         $heading = if ($firstObj.PSObject.Properties.Name -contains 'TableName') {
             $firstObj.TableName
         } else {
-            # fallback
             "Untitled Table"
         }
 
-        # Gather all properties from all objects to build the columns
-        $allProps = $ObjArray | ForEach-Object {
-            $_.PSObject.Properties.Name
-        } | Select-Object -Unique
+        # Gather all property names from all objects for columns
+        $allProps = $ObjArray |
+            ForEach-Object { $_.PSObject.Properties.Name } |
+            Select-Object -Unique
 
-        # Exclude TableName from the columns themselves (since we used it as heading)
+        # Remove 'TableName' from columns if you don't want to show it
         $allProps = $allProps | Where-Object { $_ -ne 'TableName' }
 
         $htmlBlock = @"
     <div style="width:100%">
         <h1>$heading</h1>
     </div>
-    <div class="table-container" style="width:100%"> <!-- single wide table -->
+    <div class="table-container" style="width:100%">
         <table>
             <tr>
 "@
 
-        # Build table headers
+        # Build <th> for each property
         foreach ($p in $allProps) {
             $htmlBlock += "<th>$p</th>"
         }
@@ -121,30 +127,30 @@
         foreach ($obj in $ObjArray) {
             $htmlBlock += "<tr>"
             foreach ($p in $allProps) {
-                $propValue = $obj.$p
+                $cellValue = $obj.$p
 
-                # If property is Link or URL, turn it into a clickable text using the object's Name
-                if ($p -in @('Link','URL') -and $propValue) {
-                    # If there's no Name property, fallback to the raw URL or something else
+                # Convert Link or URL -> clickable anchor
+                if ($p -in @('Link','URL') -and $cellValue) {
+                    # If object has a Name property, use it as link text
                     $linkText = if ($obj.PSObject.Properties.Name -contains 'Name') {
                         $obj.Name
                     } else {
-                        $propValue
+                        $cellValue
                     }
-                    $propValue = "<a href='$propValue' target='_blank'>$linkText</a>"
+                    $cellValue = "<a href='$cellValue' target='_blank'>$linkText</a>"
                 }
 
-                $htmlBlock += "<td>$propValue</td>"
+                $htmlBlock += "<td>$cellValue</td>"
             }
             $htmlBlock += "</tr>"
         }
-        
+
         $htmlBlock += "</table></div>"
         return $htmlBlock
     }
 
     #-------------------------------
-    # Start building the HTML
+    # Start building the full HTML
     #-------------------------------
     $html = @"
 <!DOCTYPE html>
@@ -173,25 +179,25 @@ $Description
 <div class="container">
 "@
 
-    # 1) Multiple tables for the $CustomObjects array
+    # 1) Show the main $CustomObjects in multiple small tables (2-wide)
     $html += Build-MultiObjectTables -ObjArray $CustomObjects -SectionHeading "Main Items"
 
-    # 2) ONE table for all $ServiceNow objects
+    # 2) One table for $ServiceNow
     if ($ServiceNow) {
         $html += Build-SingleTable -ObjArray $ServiceNow
     }
 
-    # 3) ONE table for all $TASKS objects
+    # 3) One table for $TASKS
     if ($TASKS) {
         $html += Build-SingleTable -ObjArray $TASKS
     }
 
-    # 4) ONE table for all $PATCHING objects
+    # 4) One table for $PATCHING
     if ($PATCHING) {
         $html += Build-SingleTable -ObjArray $PATCHING
     }
 
-    # Close container, add footer
+    # Close container + Footer
     $html += @"
 </div>
 <pre>
@@ -201,10 +207,11 @@ $FooterText
 </html>
 "@
 
-    # Write to file and return HTML string
+    # Output the HTML to a file
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
     $html | Out-File -FilePath $OutputPath -Encoding utf8
     Write-Host "HTML report generated at $OutputPath"
 
+    # Return the HTML for emailing, etc.
     return $html
 }
