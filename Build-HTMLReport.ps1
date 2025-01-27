@@ -6,11 +6,11 @@
 
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]
-        $ServiceNow,   # single table for all items
+        $ServiceNow,   # single table
 
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]
-        $Patching,     # single table for all items
+        $Patching,     # single table
 
         [string]$Description,
         [string]$FooterText
@@ -47,16 +47,21 @@
         <h2>$tableHeading</h2>
         <table>
 "@
-
             # Build a row for each property => (PropertyName | Value)
             foreach ($prop in $obj.PSObject.Properties) {
                 if ($prop.Name -eq 'Name') {
-                    # We already used Name as <h2>, skip repeating
+                    # We already used 'Name' as <h2>, skip repeating
                     continue
                 }
 
                 $propName  = $prop.Name
                 $propValue = $prop.Value
+
+                # -- Hyperlink logic: if the property is named 'Link' or 'URL',
+                #    convert the raw value into a clickable <a> tag.
+                if ($propName -in @('Link','URL') -and $propValue -is [string] -and $propValue -match '^https?://') {
+                    $propValue = "<a href='$propValue' target='_blank'>$propValue</a>"
+                }
 
                 $htmlBlock += "<tr><td>$propName</td><td>$propValue</td></tr>"
             }
@@ -107,6 +112,12 @@
             $block += "<tr>"
             foreach ($p in $allProps) {
                 $value = $obj.$p
+
+                # -- Hyperlink logic: if property is 'Link' or 'URL', convert to clickable
+                if ($p -in @('Link','URL') -and $value -is [string] -and $value -match '^https?://') {
+                    $value = "<a href='$value' target='_blank'>$value</a>"
+                }
+
                 $block += "<td>$value</td>"
             }
             $block += "</tr>"
