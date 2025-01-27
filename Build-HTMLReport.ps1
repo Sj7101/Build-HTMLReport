@@ -2,14 +2,19 @@
     param(
         [Parameter(Mandatory=$true)]
         [PSCustomObject[]]$AllObjects,      # Color-coded, one table per object
+
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]$ServiceNow,       # Single table, embed link in 'Name'
+
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]$Tasks,            # Single table, embed link in 'Name'
+
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]$Patching,         # Single table, plain text
+
         [Parameter(Mandatory=$true)]
         [string]$Description,                # Passed as a parameter
+
         [Parameter(Mandatory=$true)]
         [string]$FooterText                  # Passed as a parameter
     )
@@ -222,12 +227,13 @@
     #----------------------------------------------------------------
     # Start Building the HTML Report
     #----------------------------------------------------------------
-    # Determine Day and AM/PM based on current time
-    $currentDay = (Get-Date).ToString("dddd")  # Full day name, e.g., "Monday"
-    $timePart = (Get-Date).ToString("tt")      # Returns "AM" or "PM"
+    # Determine Day, Date, and AM/PM based on current time
+    $currentDay = (Get-Date).ToString("dddd")          # Full day name, e.g., "Monday"
+    $currentDate = (Get-Date).ToString("dd MMMM yyyy") # Date in "DD Month YYYY", e.g., "27 October 2025"
+    $timePart = (Get-Date).ToString("tt")              # Returns "AM" or "PM"
 
-    # Build the Email Header with Day and AM/PM
-    $emailHeader = "ZL Shift Handover $currentDay $timePart"
+    # Build the Email Header
+    $emailHeader = "ZL $timePart Shift Turnover - $currentDay $currentDate"
 
     # Start the HTML content
     $html = @"
