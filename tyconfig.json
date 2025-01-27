@@ -29,6 +29,7 @@
         "PropertyName": "DBQueue Status 5000"
       }
     ],
+
     "PA": [
       {
         "PropertyName": "Live Servers",
@@ -49,6 +50,7 @@
         "Red": "<380000000"
       }
     ],
+
     "MARRS": [
       {
         "PropertyName": "Live Servers",
@@ -59,6 +61,7 @@
         "Red": ">0"
       }
     ],
+
     "PZL": [
       {
         "PropertyName": "Queueing",
@@ -69,6 +72,7 @@
         "Red": "!=13"
       }
     ],
+
     "1ZLA": [
       {
         "PropertyName": "Queueing",
@@ -79,6 +83,7 @@
         "Red": "!=80"
       }
     ],
+
     "AGE": [
       {
         "PropertyName": "Queueing",
@@ -89,6 +94,7 @@
         "Red": "!=8"
       }
     ],
+
     "DI": [
       {
         "PropertyName": "Live Servers",
@@ -99,6 +105,7 @@
         "Red": ">0"
       }
     ],
+
     "HI": [
       {
         "PropertyName": "Live Servers",
@@ -109,6 +116,7 @@
         "Red": ">0"
       }
     ],
+
     "CB": [
       {
         "PropertyName": "Live Servers",
@@ -129,6 +137,7 @@
         "Red": ">0"
       }
     ],
+
     "CA2022": [
       {
         "PropertyName": "Live Servers",
@@ -154,5 +163,8 @@
         "Red": ">0"
       }
     ]
-  }
+  },
+  "EmailHeader": "ZL Shift Handover <TimePart>",
+  "Description": "Your report description goes here.",
+  "FooterText": "Your footer text goes here."
 }

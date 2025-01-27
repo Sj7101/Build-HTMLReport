@@ -8,11 +8,10 @@
         [PSCustomObject[]]$Tasks,        # Single table, embed link in 'Name'
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]$Patching,     # Single table, plain text
-        [string]$Description,
-        [string]$FooterText
+        # Removed Description and FooterText parameters as they are now in JSON
     )
 
-    # Ensure $Script:Config.Thresholds is loaded earlier in the script
+    # Ensure $Script:Config.Thresholds and Email entries are loaded earlier in the script
     # Example:
     # $Script:Config = ConvertFrom-Json (Get-Content "C:\Path\Thresholds.json" -Raw)
 
@@ -219,6 +218,17 @@
     #----------------------------------------------------------------
     # Start Building the HTML Report
     #----------------------------------------------------------------
+    # Determine AM or PM based on current time
+    $timePart = (Get-Date).ToString("tt")  # Returns "AM" or "PM"
+
+    # Retrieve Email Header from JSON and replace <TimePart> with AM/PM
+    $emailHeaderTemplate = $Script:Config.EmailHeader
+    $emailHeader = $emailHeaderTemplate -replace "<TimePart>", $timePart
+
+    # Retrieve Description and FooterText from JSON
+    $description = $Script:Config.Description
+    $footerText = $Script:Config.FooterText
+
     $html = @"
 <!DOCTYPE html>
 <html>
@@ -242,9 +252,9 @@
 </style>
 </head>
 <body>
-<h1>Custom HTML Report</h1>
+<h1>$emailHeader</h1>
 
-<pre>$Description</pre>
+<pre>$description</pre>
 <div class="container">
 "@
 
@@ -296,7 +306,7 @@
 
     $html += @"
 </div>
-<pre>$FooterText</pre>
+<pre>$footerText</pre>
 </body>
 </html>
 "@
@@ -309,3 +319,68 @@
     Write-Host "HTML report generated at $OutputPath"
     return $html
 }
+
+
+<#
+
+# Load JSON configuration
+$Script:Config = ConvertFrom-Json (Get-Content "C:\Path\To\Thresholds.json" -Raw)
+
+# Prepare your data
+$AllObjects = @(
+    [PSCustomObject]@{
+        Name = "Server1"
+        Environment = "CA2015"
+        "Live Servers" = 189
+        Queueing = 0
+        Active_Search_Partition_Count = 250000000
+        "DBQueue Status 0" = 500000
+        # ... other properties
+    },
+    [PSCustomObject]@{
+        Name = "Server2"
+        Environment = "PA"
+        "Live Servers" = 39
+        Queueing = 1
+        MTA_Monitor = 0
+        Active_Search_Partition_Count = 350000000
+        # ... other properties
+    }
+    # ... more objects
+)
+
+$ServiceNow = @(
+    [PSCustomObject]@{
+        Name = "SN Issue 1"
+        Link = "https://servicenow.example.com/issue/1"
+        # ... other properties
+    }
+    # ... more ServiceNow entries
+)
+
+$Tasks = @(
+    [PSCustomObject]@{
+        Name = "Task1"
+        Link = "https://tasks.example.com/task/1"
+        # ... other properties
+    }
+    # ... more Tasks entries
+)
+
+$Patching = @(
+    [PSCustomObject]@{
+        "Patch Name" = "KB123456"
+        "Status" = "Installed"
+        # ... other properties
+    }
+    # ... more Patching entries
+)
+
+# Build the HTML report
+$htmlContent = Build-HTMLReport -AllObjects $AllObjects -ServiceNow $ServiceNow -Tasks $Tasks -Patching $Patching
+
+# Optionally, send the email
+Send-MailMessage -To "recipient@example.com" -Subject "Custom HTML Report" -BodyAsHtml -Body $htmlContent -SmtpServer "smtp.example.com"
+
+
+#>
