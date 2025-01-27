@@ -6,7 +6,7 @@
 
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]
-        $ServiceNow,   # single table (hyperlink logic applies here only)
+        $ServiceNow,   # single table, with hyperlink logic that uses a custom link text
 
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]
@@ -21,9 +21,8 @@
     )
 
     #-----------------------------------------------------------------
-    # Helper 1: Build multiple small tables (one per object), 
-    #           used for $AllObjects
-    #           => no hyperlink logic here
+    # Helper 1: Build multiple small tables (one per object) for $AllObjects
+    #           => NO hyperlink logic
     #-----------------------------------------------------------------
     function Build-MultiObjectTables {
         param(
@@ -31,48 +30,38 @@
             [string]$SectionHeading
         )
 
-        # If $ObjArray is null or empty, return nothing
         if (!$ObjArray -or $ObjArray.Count -eq 0) {
             return ""
         }
 
-        # Big heading for this section
         $htmlBlock = @"
     <div style="width:100%">
         <h1>$SectionHeading</h1>
     </div>
 "@
 
-        # Each PSCustomObject => one table
         foreach ($obj in $ObjArray) {
-            # Use the object's 'Name' property (if any) as sub-heading
             $tableHeading = $obj.Name
-
             $htmlBlock += @"
     <div class="table-container">
         <h2>$tableHeading</h2>
         <table>
 "@
-            # Each property => one row (PropertyName | Value)
             foreach ($prop in $obj.PSObject.Properties) {
-                if ($prop.Name -eq 'Name') {
-                    continue  # skip repeating the Name property in the table
-                }
-
+                if ($prop.Name -eq 'Name') { continue }
                 $propName  = $prop.Name
                 $propValue = $prop.Value
 
-                # NO hyperlink conversion here
+                # NO hyperlink logic here
                 $htmlBlock += "<tr><td>$propName</td><td>$propValue</td></tr>"
             }
             $htmlBlock += "</table></div>"
         }
-
         return $htmlBlock
     }
 
     #-----------------------------------------------------------------
-    # Helper 2: Build ONE table for single arrays like $Tasks, $Patching
+    # Helper 2: Build ONE table for $Tasks or $Patching
     #           => NO hyperlink logic
     #-----------------------------------------------------------------
     function Build-SingleTableNoLinks {
@@ -85,10 +74,7 @@
             return ""
         }
 
-        # Collect all property names for columns
-        $allProps = $Data | ForEach-Object {
-            $_.PSObject.Properties.Name
-        } | Select-Object -Unique
+        $allProps = $Data | ForEach-Object { $_.PSObject.Properties.Name } | Select-Object -Unique
 
         $block = @"
     <div style="width:100%">
@@ -98,18 +84,16 @@
         <table>
             <tr>
 "@
-        # Headers
         foreach ($p in $allProps) {
             $block += "<th>$p</th>"
         }
         $block += "</tr>"
 
-        # One row per PSCustomObject
         foreach ($obj in $Data) {
             $block += "<tr>"
             foreach ($p in $allProps) {
                 $value = $obj.$p
-                # NO hyperlink conversion here
+                # NO hyperlink logic
                 $block += "<td>$value</td>"
             }
             $block += "</tr>"
@@ -119,8 +103,9 @@
     }
 
     #-----------------------------------------------------------------
-    # Helper 3: Build ONE table specifically for $ServiceNow 
-    #           => WITH hyperlink logic (Link/URL => <a> tag)
+    # Helper 3: Build ONE table for $ServiceNow with hyperlink logic.
+    #           => The link text is replaced with the object's Name property
+    #              (or a further-trimmed version if you prefer).
     #-----------------------------------------------------------------
     function Build-SingleTableServiceNow {
         param(
@@ -132,10 +117,7 @@
             return ""
         }
 
-        # Collect all property names for columns
-        $allProps = $Data | ForEach-Object {
-            $_.PSObject.Properties.Name
-        } | Select-Object -Unique
+        $allProps = $Data | ForEach-Object { $_.PSObject.Properties.Name } | Select-Object -Unique
 
         $block = @"
     <div style="width:100%">
@@ -145,21 +127,28 @@
         <table>
             <tr>
 "@
-        # Headers
         foreach ($p in $allProps) {
             $block += "<th>$p</th>"
         }
         $block += "</tr>"
 
-        # One row per PSCustomObject
         foreach ($obj in $Data) {
             $block += "<tr>"
             foreach ($p in $allProps) {
                 $value = $obj.$p
 
-                # ONLY here do we convert Link/URL => hyperlink
+                # If the property is Link or URL, show link text = $obj.Name
                 if ($p -in @('Link','URL') -and $value -is [string] -and $value -match '^https?://') {
-                    $value = "<a href='$value' target='_blank'>$value</a>"
+                    
+                    # Option A: Use full $obj.Name as link text
+                    # $linkText = $obj.Name
+
+                    # Option B: If you want to replace "Service Now " with "", do:
+                    $linkText = $obj.Name -replace '^Service Now\s*', '' 
+                    # => "Service Now Incident Queue" becomes "Incident Queue"
+                    # => "Service Now Change Queue" => "Change Queue"
+
+                    $value = "<a href='$value' target='_blank'>$linkText</a>"
                 }
                 $block += "<td>$value</td>"
             }
@@ -170,7 +159,7 @@
     }
 
     #-----------------------------------------------------------------
-    # Start building the main HTML
+    # Build the main HTML
     #-----------------------------------------------------------------
     $html = @"
 <!DOCTYPE html>
@@ -198,10 +187,10 @@ $Description
 <div class="container">
 "@
 
-    # 1) Multiple small tables for $AllObjects
+    # 1) $AllObjects => multiple tables
     $html += Build-MultiObjectTables -ObjArray $AllObjects -SectionHeading "All Objects"
 
-    # 2) $ServiceNow => single table with hyperlink logic
+    # 2) $ServiceNow => single table with custom hyperlink logic
     if ($ServiceNow) {
         $html += Build-SingleTableServiceNow -Data $ServiceNow -Heading "ServiceNow"
     }
@@ -216,9 +205,6 @@ $Description
         $html += Build-SingleTableNoLinks -Data $Patching -Heading "Patching"
     }
 
-    #-----------------------------------------------------------------
-    # Close container + add footer
-    #-----------------------------------------------------------------
     $html += @"
 </div>
 
