@@ -3,7 +3,7 @@
         [Parameter(Mandatory=$true)]
         [PSCustomObject[]]$AllObjects,  # color-coded, one table per object
         [Parameter(Mandatory=$false)]
-        [PSCustomObject[]]$ServiceNow,   # single table, embed link in 'Name' if 'Link' is present
+        [PSCustomObject[]]$ServiceNow,   # single table, embed link in 'Name'
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]$Tasks,        # single table, embed link in 'Name'
         [Parameter(Mandatory=$false)]
@@ -12,8 +12,8 @@
         [string]$FooterText
     )
 
-    # We rely on $Script:Config.Thresholds being loaded earlier in the script
-    # e.g. $Script:Config = ConvertFrom-Json (Get-Content "C:\Path\Thresholds.json" -Raw)
+    # We rely on $Script:Config.Thresholds being loaded earlier
+    # e.g. $Script:Config = ConvertFrom-Json (Get-Content "Thresholds.json" -Raw)
 
     #----------------------------------------------------------------
     # Helper: Evaluate numeric conditions like "<50", ">=100 && <200",
@@ -26,22 +26,23 @@
             [string]$PropValue
         )
 
-        # default no color
-        $cellClass = "none"
+        $cellClass = "none"  # default
 
-        # fetch the array of rules for this environment
-        $envRules = $Script:Config.Thresholds[$Environment]
+        # 1) Expand the environment property from $Script:Config.Thresholds
+        #    This only works if the property exists. If not, $envRules = $null.
+        $envRules = $Script:Config.Thresholds | Select-Object -ExpandProperty $Environment -ErrorAction SilentlyContinue
+
         if (-not $envRules) {
-            return $cellClass  # environment not in JSON => no color
+            return $cellClass  # no environment property => no color
         }
 
-        # find rule for this property
+        # 2) Find the rule for this property
         $ruleBlock = $envRules | Where-Object { $_.PropertyName -eq $PropName }
         if (-not $ruleBlock) {
-            return $cellClass  # no rule => no color
+            return $cellClass  # no matching rule => no color
         }
 
-        # parse numeric for conditions
+        # 3) Attempt numeric logic. 
         $numericVal = ($PropValue -replace '[^0-9\.]', '')
         [double]$num = 0
         [double]::TryParse($numericVal, [ref]$num) | Out-Null
@@ -65,7 +66,7 @@
             }
         }
 
-        # Check Green => Yellow => Red if present
+        # 4) Evaluate in order: Green => Yellow => Red
         if ($ruleBlock.Green) {
             if (Test-Condition $num ($ruleBlock.Green)) {
                 $cellClass = "green"
@@ -78,12 +79,8 @@
         }
         if ($ruleBlock.Red -and $cellClass -eq "none") {
             if ($ruleBlock.Red -eq "olderThan7Days") {
-                # For date logic, parse $PropValue as [datetime], compare to (Get-Date).AddDays(-7), etc.
-                # e.g.:
-                # try {
-                #     $dateVal = [datetime]$PropValue
-                #     if ($dateVal -lt (Get-Date).AddDays(-7)) { $cellClass = "red" }
-                # }
+                # If you have date logic, parse date and compare
+                # e.g. if ([datetime]$PropValue -lt (Get-Date).AddDays(-7)) ...
             }
             elseif (Test-Condition $num ($ruleBlock.Red)) {
                 $cellClass = "red"
@@ -94,9 +91,7 @@
     }
 
     #----------------------------------------------------------------
-    # Single Table: embed link logic for $ServiceNow, $Tasks, etc.
-    # One table, multiple rows (no environment color logic).
-    # If you want color logic here too, you can adapt the same approach.
+    # For single-table arrays (ServiceNow, Tasks) with link embed
     #----------------------------------------------------------------
     function Build-SingleTableEmbedLink {
         param(
@@ -108,10 +103,8 @@
             return ""
         }
 
-        # gather all properties
         $allProps = $Data | ForEach-Object { $_.PSObject.Properties.Name } | Select-Object -Unique
-
-        # remove "Link" if you want to hide that column, or do an approach that merges link into 'Name'
+        # remove Link if you want it hidden
         $allProps = $allProps | Where-Object { $_ -notin @('Link') }
 
         $htmlSnippet = @"
@@ -130,9 +123,8 @@
         foreach ($row in $Data) {
             $htmlSnippet += "<tr>"
 
-            # store link
-            $hasLink = $false
             $linkVal = $row.Link
+            $hasLink = $false
             if ($linkVal -is [string] -and $linkVal -match '^https?://') {
                 $hasLink = $true
             }
@@ -140,7 +132,6 @@
             foreach ($p in $allProps) {
                 $val = $row.$p
 
-                # if p is 'Name' and we have a link, embed
                 if ($p -eq 'Name' -and $hasLink) {
                     $val = "<a href='$linkVal' target='_blank'>$val</a>"
                 }
@@ -156,7 +147,7 @@
     }
 
     #----------------------------------------------------------------
-    # Single Table No Links: for $Patching
+    # For single-table arrays (Patching) plain text
     #----------------------------------------------------------------
     function Build-SingleTableNoLinks {
         param(
@@ -197,8 +188,8 @@
     }
 
     #----------------------------------------------------------------
-    # Start building the final HTML
-    # (One table per AllObjects item => 2-col layout)
+    # Start building final HTML
+    # (One table per AllObjects item => 2 columns, color-coded)
     #----------------------------------------------------------------
     $html = @"
 <!DOCTYPE html>
@@ -224,19 +215,15 @@
 </head>
 <body>
 <h1>Custom HTML Report</h1>
+
 <pre>$Description</pre>
 <div class="container">
 "@
 
-    #----------------------------------------------------------------
-    # Build separate small tables for each object in $AllObjects
-    # 2-column format: row => (PropertyName | Value)
-    # With environment color logic
-    #----------------------------------------------------------------
+    # Build separate small tables for each PSCustomObject in $AllObjects
     foreach ($obj in $AllObjects) {
-        # read environment
-        $envName = $obj.Environment  # must match e.g. "CA2015", "PA", etc. in $Script:Config.Thresholds
-        $tableHeading = $obj.Name    # displayed as <h2>
+        $envName = $obj.Environment
+        $tableHeading = $obj.Name
 
         $html += @"
 <div class="table-container">
@@ -245,13 +232,17 @@
 "@
 
         foreach ($prop in $obj.PSObject.Properties) {
-            if ($prop.Name -in @('Name','Environment')) { continue }
+            # skip Name/Environment if you don't want them as rows
+            if ($prop.Name -eq 'Name') { continue }
 
             $propName  = $prop.Name
             $propValue = $prop.Value
 
             # color logic
-            $cellClass = Get-CellClass -Environment $envName -PropName $propName -PropValue $propValue
+            $cellClass = "none"
+            if ($prop.Name -ne 'Environment') {
+                $cellClass = Get-CellClass -Environment $envName -PropName $propName -PropValue $propValue
+            }
 
             $html += "<tr><td>$propName</td><td class='$cellClass'>$propValue</td></tr>"
         }
@@ -259,10 +250,7 @@
         $html += "</table></div>"
     }
 
-    #----------------------------------------------------------------
-    # Now handle ServiceNow, Tasks, Patching as single tables
-    # (No environment color logic unless you want to add it)
-    #----------------------------------------------------------------
+    # Now handle single-table arrays for ServiceNow, Tasks, Patching
     if ($ServiceNow) {
         $html += Build-SingleTableEmbedLink -Data $ServiceNow -Heading "ServiceNow"
     }
@@ -280,7 +268,7 @@
 </html>
 "@
 
-    # Write out
+    # Output
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
     $html | Out-File $OutputPath -Encoding utf8
     Write-Host "HTML report generated at $OutputPath"
