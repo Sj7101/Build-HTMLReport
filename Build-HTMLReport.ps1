@@ -177,4 +177,34 @@ $Description
     $html += Build-MultiObjectTables -ObjArray $CustomObjects -SectionHeading "Main Items"
 
     # 2) ONE table for all $ServiceNow objects
-    if ($ServiceNow)
+    if ($ServiceNow) {
+        $html += Build-SingleTable -ObjArray $ServiceNow
+    }
+
+    # 3) ONE table for all $TASKS objects
+    if ($TASKS) {
+        $html += Build-SingleTable -ObjArray $TASKS
+    }
+
+    # 4) ONE table for all $PATCHING objects
+    if ($PATCHING) {
+        $html += Build-SingleTable -ObjArray $PATCHING
+    }
+
+    # Close container, add footer
+    $html += @"
+</div>
+<pre>
+$FooterText
+</pre>
+</body>
+</html>
+"@
+
+    # Write to file and return HTML string
+    $OutputPath = "D:\PowerShell\Test\CustomReport.html"
+    $html | Out-File -FilePath $OutputPath -Encoding utf8
+    Write-Host "HTML report generated at $OutputPath"
+
+    return $html
+}
