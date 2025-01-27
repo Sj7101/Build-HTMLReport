@@ -2,11 +2,15 @@
     param(
         [Parameter(Mandatory=$true)]
         [PSCustomObject[]]
-        $AllObjects,   # multiple object => multiple separate tables
+        $AllObjects,   # multiple objects => multiple separate tables
 
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]
         $ServiceNow,   # single table
+
+        [Parameter(Mandatory=$false)]
+        [PSCustomObject[]]
+        $Tasks,        # single table
 
         [Parameter(Mandatory=$false)]
         [PSCustomObject[]]
@@ -73,7 +77,7 @@
 
     #-----------------------------------------------------------------
     # Helper 2: Build exactly ONE table from an array of PSCustomObjects
-    #           => For $ServiceNow, $Patching, etc.
+    #           => For $ServiceNow, $Tasks, $Patching, etc.
     #           => Each item => one row, each property => one column
     #-----------------------------------------------------------------
     function Build-SingleTable {
@@ -84,6 +88,7 @@
 
         # If array is null/empty, return nothing
         if (!$Data -or $Data.Count -eq 0) {
+            # no items => no table
             return ""
         }
 
@@ -163,7 +168,12 @@ $Description
         $html += Build-SingleTable -Data $ServiceNow -Heading "ServiceNow"
     }
 
-    # 3) $Patching => ONE table with multiple rows
+    # 3) $Tasks => ONE table with multiple rows, above Patching
+    if ($Tasks) {
+        $html += Build-SingleTable -Data $Tasks -Heading "Tasks"
+    }
+
+    # 4) $Patching => ONE table with multiple rows
     if ($Patching) {
         $html += Build-SingleTable -Data $Patching -Heading "Patching"
     }
