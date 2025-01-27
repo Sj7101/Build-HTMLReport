@@ -1,0 +1,67 @@
+{
+  "thresholds": {
+    "Live Servers": {
+      "RiskDirection": "Low",
+      "Levels": {
+        "High": 50,
+        "Medium": 100,
+        "Low": 200,
+        "None": 201
+      }
+    },
+    "MTAMonitor": {
+      "RiskDirection": "High",
+      "Levels": {
+        "High": 5000,
+        "Medium": 10000,
+        "Low": 20000,
+        "None": 20001
+      }
+    },
+    "Database Free Space": {
+      "RiskDirection": "Low",
+      "Levels": {
+        "High": 20,
+        "Medium": 30,
+        "Low": 60,
+        "None": 60.01
+      }
+    },
+    "DBQueue Status 0": {
+      "RiskDirection": "High",
+      "Levels": {
+        "High": 10,
+        "Medium": 50,
+        "Low": 100,
+        "None": 101
+      }
+    },
+    "DBQueue Status 5000": {
+      "RiskDirection": "High",
+      "Levels": {
+        "High": 10,
+        "Medium": 50,
+        "Low": 100,
+        "None": 101
+      }
+    },
+    "DBQueue Status 284": {
+      "RiskDirection": "High",
+      "Levels": {
+        "High": 10,
+        "Medium": 50,
+        "Low": 100,
+        "None": 101
+      }
+    },
+    "DBQueue Status 286": {
+      "RiskDirection": "High",
+      "Levels": {
+        "High": 10,
+        "Medium": 50,
+        "Low": 100,
+        "None": 101
+      }
+    }
+  }
+}
