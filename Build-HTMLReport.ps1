@@ -1,10 +1,13 @@
 ﻿function Build-HTMLReport {
     param(
         [Parameter(Mandatory = $true)]
-        [PSCustomObject[]]$AllObjects,   # One table
+        [PSCustomObject[]]$AllObjects,   # One table: "All Objects"
 
         [Parameter(Mandatory = $false)]
-        [PSCustomObject[]]$ServiceNow,   # Another single table (multiple rows if multiple PSCustomObjects)
+        [PSCustomObject[]]$ServiceNow,   # One table: "Service Now Queue"
+
+        [Parameter(Mandatory = $false)]
+        [PSCustomObject[]]$Patching,     # One table: "Patching"
 
         [string]$Description,
         [string]$FooterText
@@ -107,8 +110,11 @@ $Description
     # 1) One table for $AllObjects
     $html += Build-OneTable -Data $AllObjects -Heading "All Objects"
 
-    # 2) One table for $ServiceNow – call it "Service Now Queue" as requested
+    # 2) One table for $ServiceNow
     $html += Build-OneTable -Data $ServiceNow -Heading "Service Now Queue"
+
+    # 3) One table for $Patching
+    $html += Build-OneTable -Data $Patching -Heading "Patching"
 
     #---------------------------------------------------------------------------
     # Close container + add footer + end HTML
