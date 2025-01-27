@@ -1,23 +1,23 @@
 ﻿function Build-HTMLReport {
     param(
         [Parameter(Mandatory=$true)]
-        [PSCustomObject[]]$AllObjects,  # color-coded, one table per object
+        [PSCustomObject[]]$AllObjects,  # Color-coded, one table per object
         [Parameter(Mandatory=$false)]
-        [PSCustomObject[]]$ServiceNow,   # single table, embed link in 'Name'
+        [PSCustomObject[]]$ServiceNow,   # Single table, embed link in 'Name'
         [Parameter(Mandatory=$false)]
-        [PSCustomObject[]]$Tasks,        # single table, embed link in 'Name'
+        [PSCustomObject[]]$Tasks,        # Single table, embed link in 'Name'
         [Parameter(Mandatory=$false)]
-        [PSCustomObject[]]$Patching,     # single table, plain text
+        [PSCustomObject[]]$Patching,     # Single table, plain text
         [string]$Description,
         [string]$FooterText
     )
 
-    # We rely on $Script:Config.Thresholds being loaded earlier
-    # e.g. $Script:Config = ConvertFrom-Json (Get-Content "Thresholds.json" -Raw)
+    # Ensure $Script:Config.Thresholds is loaded earlier in the script
+    # Example:
+    # $Script:Config = ConvertFrom-Json (Get-Content "C:\Path\Thresholds.json" -Raw)
 
     #----------------------------------------------------------------
-    # Helper: Evaluate numeric conditions like "<50", ">=100 && <200",
-    # or "!=189". Return one of: "none", "green", "yellow", or "red".
+    # Helper: Evaluate conditions and determine cell class
     #----------------------------------------------------------------
     function Get-CellClass {
         param(
@@ -26,63 +26,89 @@
             [string]$PropValue
         )
 
-        $cellClass = "none"  # default
+        # Default class
+        $cellClass = "none"
 
-        # 1) Expand the environment property from $Script:Config.Thresholds
-        #    This only works if the property exists. If not, $envRules = $null.
-        $envRules = $Script:Config.Thresholds | Select-Object -ExpandProperty $Environment -ErrorAction SilentlyContinue
-
-        if (-not $envRules) {
-            return $cellClass  # no environment property => no color
+        # Retrieve environment-specific rules
+        $envRules = $null
+        try {
+            $envRules = $Script:Config.Thresholds | Select-Object -ExpandProperty $Environment -ErrorAction Stop
+        }
+        catch {
+            Write-Host "DEBUG: No threshold rules found for environment '$Environment'"
+            return $cellClass
         }
 
-        # 2) Find the rule for this property
+        # Find the rule for the specific property
         $ruleBlock = $envRules | Where-Object { $_.PropertyName -eq $PropName }
         if (-not $ruleBlock) {
-            return $cellClass  # no matching rule => no color
+            Write-Host "DEBUG: No rule found for PropertyName='$PropName' in environment='$Environment'"
+            return $cellClass
         }
 
-        # 3) Attempt numeric logic. 
-        $numericVal = ($PropValue -replace '[^0-9\.]', '')
-        [double]$num = 0
-        [double]::TryParse($numericVal, [ref]$num) | Out-Null
-
-        function Test-Condition {
-            param($number, $cond)
-            $expr = $cond
-                .Replace(">=", "$number -ge ")
-                .Replace("<=", "$number -le ")
-                .Replace(">",  "$number -gt ")
-                .Replace("<",  "$number -lt ")
-                .Replace("==", "$number -eq ")
-                .Replace("!=", "$number -ne ")
-                .Replace("&&", "-and")
-                .Replace("||", "-or")
+        # Handle special cases like date-based conditions
+        if ($ruleBlock.Red -eq "olderThan7Days") {
             try {
-                [ScriptBlock]::Create($expr).Invoke() -eq $true
+                $dateVal = [datetime]$PropValue
+                if ($dateVal -lt (Get-Date).AddDays(-7)) {
+                    $cellClass = "red"
+                }
             }
             catch {
-                $false
+                Write-Host "DEBUG: Failed to parse date for PropertyName='$PropName' with value='$PropValue'"
+            }
+            return $cellClass
+        }
+
+        # Attempt to parse numeric value
+        $numericVal = ($PropValue -replace '[^0-9\.]', '')
+        [double]$num = 0
+        if (-not [double]::TryParse($numericVal, [ref]$num)) {
+            Write-Host "DEBUG: Non-numeric value for PropertyName='$PropName': '$PropValue'"
+            return $cellClass
+        }
+
+        # Function to safely evaluate condition strings
+        function Test-Condition {
+            param(
+                [double]$number,
+                [string]$cond
+            )
+
+            [string]$expr = $cond
+            $expr = ($expr).Replace(">=", "$number -ge ")
+            $expr = ($expr).Replace("<=", "$number -le ")
+            $expr = ($expr).Replace(">",  "$number -gt ")
+            $expr = ($expr).Replace("<",  "$number -lt ")
+            $expr = ($expr).Replace("==", "$number -eq ")
+            $expr = ($expr).Replace("!=", "$number -ne ")
+            $expr = ($expr).Replace("&&", "-and")
+            $expr = ($expr).Replace("||", "-or")
+
+            try {
+                return ([ScriptBlock]::Create($expr).Invoke() -eq $true)
+            }
+            catch {
+                Write-Host "DEBUG: Failed to evaluate condition '$cond' for number '$number'"
+                return $false
             }
         }
 
-        # 4) Evaluate in order: Green => Yellow => Red
+        # Check conditions in order: Green -> Yellow -> Red
         if ($ruleBlock.Green) {
-            if (Test-Condition $num ($ruleBlock.Green)) {
+            if (Test-Condition -number $num -cond $ruleBlock.Green) {
                 $cellClass = "green"
             }
         }
+
         if ($ruleBlock.Yellow -and $cellClass -eq "none") {
-            if (Test-Condition $num ($ruleBlock.Yellow)) {
+            if (Test-Condition -number $num -cond $ruleBlock.Yellow) {
                 $cellClass = "yellow"
             }
         }
+
         if ($ruleBlock.Red -and $cellClass -eq "none") {
-            if ($ruleBlock.Red -eq "olderThan7Days") {
-                # If you have date logic, parse date and compare
-                # e.g. if ([datetime]$PropValue -lt (Get-Date).AddDays(-7)) ...
-            }
-            elseif (Test-Condition $num ($ruleBlock.Red)) {
+            if (Test-Condition -number $num -cond $ruleBlock.Red) {
                 $cellClass = "red"
             }
         }
@@ -91,7 +117,7 @@
     }
 
     #----------------------------------------------------------------
-    # For single-table arrays (ServiceNow, Tasks) with link embed
+    # Helper: Build Single Table with Embedded Links
     #----------------------------------------------------------------
     function Build-SingleTableEmbedLink {
         param(
@@ -99,12 +125,13 @@
             [string]$Heading
         )
 
-        if (!$Data -or $Data.Count -eq 0) {
+        if (-not $Data -or $Data.Count -eq 0) {
             return ""
         }
 
+        # Gather all property names
         $allProps = $Data | ForEach-Object { $_.PSObject.Properties.Name } | Select-Object -Unique
-        # remove Link if you want it hidden
+        # Optionally exclude 'Link' if you want
         $allProps = $allProps | Where-Object { $_ -notin @('Link') }
 
         $htmlSnippet = @"
@@ -115,6 +142,7 @@
   <table>
     <tr>
 "@
+
         foreach ($p in $allProps) {
             $htmlSnippet += "<th>$p</th>"
         }
@@ -123,15 +151,14 @@
         foreach ($row in $Data) {
             $htmlSnippet += "<tr>"
 
+            # Check if there's a valid link
             $linkVal = $row.Link
-            $hasLink = $false
-            if ($linkVal -is [string] -and $linkVal -match '^https?://') {
-                $hasLink = $true
-            }
+            $hasLink = ($linkVal -is [string] -and $linkVal -match '^https?://')
 
             foreach ($p in $allProps) {
                 $val = $row.$p
 
+                # Embed link in 'Name' if applicable
                 if ($p -eq 'Name' -and $hasLink) {
                     $val = "<a href='$linkVal' target='_blank'>$val</a>"
                 }
@@ -147,7 +174,7 @@
     }
 
     #----------------------------------------------------------------
-    # For single-table arrays (Patching) plain text
+    # Helper: Build Single Table without Links (Plain Text)
     #----------------------------------------------------------------
     function Build-SingleTableNoLinks {
         param(
@@ -155,10 +182,11 @@
             [string]$Heading
         )
 
-        if (!$Data -or $Data.Count -eq 0) {
+        if (-not $Data -or $Data.Count -eq 0) {
             return ""
         }
 
+        # Gather all property names
         $allProps = $Data | ForEach-Object { $_.PSObject.Properties.Name } | Select-Object -Unique
 
         $htmlSnippet = @"
@@ -169,6 +197,7 @@
   <table>
     <tr>
 "@
+
         foreach ($p in $allProps) {
             $htmlSnippet += "<th>$p</th>"
         }
@@ -188,8 +217,7 @@
     }
 
     #----------------------------------------------------------------
-    # Start building final HTML
-    # (One table per AllObjects item => 2 columns, color-coded)
+    # Start Building the HTML Report
     #----------------------------------------------------------------
     $html = @"
 <!DOCTYPE html>
@@ -206,7 +234,7 @@
     th { background-color: #f2f2f2; }
     pre { white-space: pre-wrap; font-size: 16px; }
 
-    /* color classes */
+    /* Color classes */
     .none   { background-color: transparent; }
     .red    { background-color: #ffcccc; }
     .yellow { background-color: #ffffcc; }
@@ -220,7 +248,10 @@
 <div class="container">
 "@
 
-    # Build separate small tables for each PSCustomObject in $AllObjects
+    #----------------------------------------------------------------
+    # Build Tables for AllObjects
+    # One table per PSCustomObject (2 columns: PropertyName | Value)
+    #----------------------------------------------------------------
     foreach ($obj in $AllObjects) {
         $envName = $obj.Environment
         $tableHeading = $obj.Name
@@ -232,13 +263,13 @@
 "@
 
         foreach ($prop in $obj.PSObject.Properties) {
-            # skip Name/Environment if you don't want them as rows
+            # Include 'Environment' row if needed
             if ($prop.Name -eq 'Name') { continue }
 
             $propName  = $prop.Name
             $propValue = $prop.Value
 
-            # color logic
+            # Determine cell class based on thresholds
             $cellClass = "none"
             if ($prop.Name -ne 'Environment') {
                 $cellClass = Get-CellClass -Environment $envName -PropName $propName -PropValue $propValue
@@ -250,7 +281,9 @@
         $html += "</table></div>"
     }
 
-    # Now handle single-table arrays for ServiceNow, Tasks, Patching
+    #----------------------------------------------------------------
+    # Build Tables for ServiceNow, Tasks, Patching
+    #----------------------------------------------------------------
     if ($ServiceNow) {
         $html += Build-SingleTableEmbedLink -Data $ServiceNow -Heading "ServiceNow"
     }
@@ -268,9 +301,11 @@
 </html>
 "@
 
-    # Output
+    #----------------------------------------------------------------
+    # Output the HTML to a file
+    #----------------------------------------------------------------
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
-    $html | Out-File $OutputPath -Encoding utf8
+    $html | Out-File -FilePath $OutputPath -Encoding utf8
     Write-Host "HTML report generated at $OutputPath"
     return $html
 }
