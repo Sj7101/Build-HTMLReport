@@ -346,7 +346,7 @@
             }
         }
 
-        # If there's an odd number of tables, close the last row
+        # If there's an odd number of tables, close the last row with an empty cell
         if ($AllObjects.Count % 2 -ne 0) {
             # Add an empty cell to complete the row
             $html += "<td valign='top' width='50%' style='padding: 5px;'></td></tr>`n"
