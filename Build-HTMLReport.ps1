@@ -1,21 +1,18 @@
 ﻿function Build-HTMLReport {
     param(
         [Parameter(Mandatory = $true)]
-        [PSCustomObject[]]
-        $AllObjects,    # One table
+        [PSCustomObject[]]$AllObjects,   # One table
 
         [Parameter(Mandatory = $false)]
-        [PSCustomObject[]]
-        $ServiceNow,    # Second table (2 PSCustomObjects => 2 rows)
+        [PSCustomObject[]]$ServiceNow,   # Another single table (multiple rows if multiple PSCustomObjects)
 
         [string]$Description,
         [string]$FooterText
     )
 
     #---------------------------------------------------------------------------
-    # Helper function: Builds one HTML table from an array of PSCustomObjects.
-    # Each PSCustomObject becomes a row; each property is a column.
-    # If the array is empty or $null, returns an empty string (no table).
+    # Helper: Builds one HTML table from an array of PSCustomObjects
+    # (all items in one table). Each PSCustomObject => one row.
     #---------------------------------------------------------------------------
     function Build-OneTable {
         param(
@@ -23,16 +20,17 @@
             [string]$Heading
         )
 
-        if (!$Data -or $Data.Count -eq 0) {
-            return ""  # No table if array is empty or $null
+        # If array is empty or not provided, return nothing
+        if (!$Data -or $Data.Count -eq 0) { 
+            return ""
         }
 
-        # Collect all property names (columns) from these objects
+        # Gather all property names from these objects for columns
         $allProps = $Data | ForEach-Object {
             $_.PSObject.Properties.Name
         } | Select-Object -Unique
 
-        # Start building the table HTML
+        # Start the table HTML
         $tableHtml = @"
     <div class="table-container">
         <h2>$Heading</h2>
@@ -40,13 +38,13 @@
             <tr>
 "@
 
-        # Headers
+        # Table headers
         foreach ($propName in $allProps) {
             $tableHtml += "<th>$propName</th>"
         }
         $tableHtml += "</tr>"
 
-        # One row per PSCustomObject
+        # One row per PSCustomObject in $Data
         foreach ($obj in $Data) {
             $tableHtml += "<tr>"
             foreach ($propName in $allProps) {
@@ -106,13 +104,15 @@ $Description
 <div class="container">
 "@
 
-    # Build one table for $AllObjects
+    # 1) One table for $AllObjects
     $html += Build-OneTable -Data $AllObjects -Heading "All Objects"
 
-    # Build one table for $ServiceNow
-    $html += Build-OneTable -Data $ServiceNow -Heading "ServiceNow"
+    # 2) One table for $ServiceNow – call it "Service Now Queue" as requested
+    $html += Build-OneTable -Data $ServiceNow -Heading "Service Now Queue"
 
-    # Close the container + add footer + end HTML
+    #---------------------------------------------------------------------------
+    # Close container + add footer + end HTML
+    #---------------------------------------------------------------------------
     $html += @"
 </div>
 
@@ -124,9 +124,7 @@ $FooterText
 </html>
 "@
 
-    #---------------------------------------------------------------------------
-    # Write to file and return the HTML
-    #---------------------------------------------------------------------------
+    # Output to file & return the HTML
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
     $html | Out-File -FilePath $OutputPath -Encoding utf8
     Write-Host "HTML report generated at $OutputPath"
