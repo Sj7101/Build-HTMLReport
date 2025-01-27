@@ -263,63 +263,94 @@
         </tr>
         <tr>
             <td style='padding: 0 20px;'>
+                <!-- Parent Table for AllObjects with two tables per row -->
                 <table width='100%' cellpadding='0' cellspacing='0' border='0'>
 "@
 
     #----------------------------------------------------------------
-    # Build Tables for AllObjects
-    # One table per PSCustomObject (2 columns: PropertyName | Value)
+    # Build Tables for AllObjects - Two Tables Per Row
     #----------------------------------------------------------------
-    foreach ($obj in $AllObjects) {
-        $envName = $obj.Environment
-        $tableHeading = $obj.Name
+    if ($AllObjects.Count -gt 0) {
+        # Initialize a counter
+        $counter = 0
 
-        $html += "<!-- Table for $tableHeading -->`n"
-        $html += "<tr><td colspan='2' style='padding-bottom: 10px;'>`n"
+        foreach ($obj in $AllObjects) {
+            # Determine if a new row is needed
+            if ($counter % 2 -eq 0) {
+                # Start a new row
+                $html += "<tr>"
+            }
 
-        # Use a nested table for each object
-        $html += @"
-    <table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin-bottom: 20px;'>
-        <tr>
-            <td style='padding: 0 0 10px 0;'>
-                <h2 style='font-size:18px; margin:0;'>$tableHeading</h2>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <table width='100%' cellpadding='0' cellspacing='0' border='1' style='border-collapse: collapse;'>
+            $envName = $obj.Environment
+            $tableHeading = $obj.Name
+
+            # Start the table cell
+            $html += "<td valign='top' width='50%' style='padding: 5px;'>"
+
+            # Nested table for each object
+            $html += @"
+        <table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin-bottom: 20px;'>
+            <tr>
+                <td colspan='2' style='padding: 10px 0;'>
+                    <h2 style='font-size:16px; margin:0;'>$tableHeading</h2>
+                </td>
+            </tr>
+            <tr>
+                <td colspan='2' style='padding-bottom: 10px;'>
+                    <table width='100%' cellpadding='0' cellspacing='0' border='1' style='border-collapse: collapse;'>
+                        <tr>
+                            <th style='padding:8px; background-color:#f2f2f2;'>PropertyName</th>
+                            <th style='padding:8px; background-color:#f2f2f2;'>Value</th>
+                        </tr>
 "@
 
-        foreach ($prop in $obj.PSObject.Properties) {
-            # Include 'Environment' row
-            if ($prop.Name -eq 'Name') { continue }
+            foreach ($prop in $obj.PSObject.Properties) {
+                # Include 'Environment' row
+                if ($prop.Name -eq 'Name') { continue }
 
-            $propName  = $prop.Name
-            $propValue = $prop.Value
+                $propName  = $prop.Name
+                $propValue = $prop.Value
 
-            # Determine cell class based on thresholds
-            $cellClass = "none"
-            if ($prop.Name -ne 'Environment') {
-                $cellClass = Get-CellClass -Environment $envName -PropName $propName -PropValue $propValue
+                # Determine cell class based on thresholds
+                $cellClass = "none"
+                if ($prop.Name -ne 'Environment') {
+                    $cellClass = Get-CellClass -Environment $envName -PropName $propName -PropValue $propValue
+                }
+
+                # Define background color based on cell class
+                switch ($cellClass) {
+                    "green"  { $bgColor = "#ccffcc" }
+                    "yellow" { $bgColor = "#ffffcc" }
+                    "red"    { $bgColor = "#ffcccc" }
+                    default  { $bgColor = "transparent" }
+                }
+
+                # Append the row with inline styles
+                $html += "<tr>"
+                $html += "<td style='padding:8px; border:1px solid #000;'>$propName</td>"
+                $html += "<td style='padding:8px; border:1px solid #000; background-color:$bgColor;'>$propValue</td>"
+                $html += "</tr>"
             }
 
-            # Define background color based on cell class
-            switch ($cellClass) {
-                "green"  { $bgColor = "#ccffcc" }
-                "yellow" { $bgColor = "#ffffcc" }
-                "red"    { $bgColor = "#ffcccc" }
-                default  { $bgColor = "transparent" }
-            }
+            # Close the nested tables
+            $html += "</table></td></tr></table>"
 
-            # Append the row with inline styles
-            $html += "<tr>"
-            $html += "<td style='padding:8px; border:1px solid #000;'>$propName</td>"
-            $html += "<td style='padding:8px; border:1px solid #000; background-color:$bgColor;'>$propValue</td>"
-            $html += "</tr>"
+            # Close the table cell
+            $html += "</td>"
+
+            $counter++
+
+            # If two tables have been added, close the row
+            if ($counter % 2 -eq 0) {
+                $html += "</tr>`n"
+            }
         }
 
-        # Close the nested tables
-        $html += "</table>`n</td>`n</tr>`n</table>`n</td></tr>`n"
+        # If there's an odd number of tables, close the last row
+        if ($AllObjects.Count % 2 -ne 0) {
+            # Add an empty cell to complete the row
+            $html += "<td valign='top' width='50%' style='padding: 5px;'></td></tr>`n"
+        }
     }
 
     #----------------------------------------------------------------
@@ -335,7 +366,7 @@
         $html += Build-SingleTableNoLinks -Data $Patching -Heading "Patching"
     }
 
-    # Close the main tables and add FooterText
+    # Close the parent tables and add FooterText
     $html += @"
                 </table>
             </td>
