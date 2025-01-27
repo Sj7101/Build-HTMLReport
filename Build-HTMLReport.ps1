@@ -143,16 +143,19 @@
         $allProps = $allProps | Where-Object { $_ -notin @('Link') }
 
         $htmlSnippet = @"
-<div style="width:100%">
-  <h1>$Heading</h1>
-</div>
-<div class="table-container" style="width:100%">
-  <table>
-    <tr>
+<tr>
+    <td colspan='2' style='padding: 10px 0;'>
+        <h2 style='font-size:16px; margin:0;'>$Heading</h2>
+    </td>
+</tr>
+<tr>
+    <td colspan='2' style='padding-bottom: 10px;'>
+        <table width='100%' cellpadding='0' cellspacing='0' border='1' style='border-collapse: collapse;'>
+            <tr>
 "@
 
         foreach ($p in $allProps) {
-            $htmlSnippet += "<th>$p</th>"
+            $htmlSnippet += "<th style='padding:8px; background-color:#f2f2f2;'>$p</th>"
         }
         $htmlSnippet += "</tr>"
 
@@ -171,13 +174,13 @@
                     $val = "<a href='$linkVal' target='_blank'>$val</a>"
                 }
 
-                $htmlSnippet += "<td>$val</td>"
+                $htmlSnippet += "<td style='padding:8px;'>$val</td>"
             }
 
             $htmlSnippet += "</tr>"
         }
 
-        $htmlSnippet += "</table></div>"
+        $htmlSnippet += "</table></td></tr>"
         return $htmlSnippet
     }
 
@@ -198,16 +201,19 @@
         $allProps = $Data | ForEach-Object { $_.PSObject.Properties.Name } | Select-Object -Unique
 
         $htmlSnippet = @"
-<div style="width:100%">
-  <h1>$Heading</h1>
-</div>
-<div class="table-container" style="width:100%">
-  <table>
-    <tr>
+<tr>
+    <td colspan='2' style='padding: 10px 0;'>
+        <h2 style='font-size:16px; margin:0;'>$Heading</h2>
+    </td>
+</tr>
+<tr>
+    <td colspan='2' style='padding-bottom: 10px;'>
+        <table width='100%' cellpadding='0' cellspacing='0' border='1' style='border-collapse: collapse;'>
+            <tr>
 "@
 
         foreach ($p in $allProps) {
-            $htmlSnippet += "<th>$p</th>"
+            $htmlSnippet += "<th style='padding:8px; background-color:#f2f2f2;'>$p</th>"
         }
         $htmlSnippet += "</tr>"
 
@@ -215,12 +221,12 @@
             $htmlSnippet += "<tr>"
             foreach ($p in $allProps) {
                 $val = $row.$p
-                $htmlSnippet += "<td>$val</td>"
+                $htmlSnippet += "<td style='padding:8px;'>$val</td>"
             }
             $htmlSnippet += "</tr>"
         }
 
-        $htmlSnippet += "</table></div>"
+        $htmlSnippet += "</table></td></tr>"
         return $htmlSnippet
     }
 
@@ -228,41 +234,36 @@
     # Start Building the HTML Report
     #----------------------------------------------------------------
     # Determine Day, Date, and AM/PM based on current time
-    $currentDay = (Get-Date).ToString("dddd")             # Full day name, e.g., "Monday"
-    $currentDate = (Get-Date).ToString("dd MMMM yyyy")   # Date in "DD Month YYYY", e.g., "27 October 2025"
-    $timePart = (Get-Date).ToString("tt")                 # Returns "AM" or "PM"
+    $currentDay = (Get-Date).ToString("dddd")               # Full day name, e.g., "Monday"
+    $currentDate = (Get-Date).ToString("MM/dd/yyyy")        # Date in "MM/dd/yyyy", e.g., "01/27/2025"
+    $timePart = (Get-Date).ToString("tt")                   # Returns "AM" or "PM"
 
     # Build the Email Header
     $emailHeader = "ZL $timePart Shift Turnover - $currentDay $currentDate"
 
-    # Start the HTML content
+    # Start the HTML content with a main table for better Outlook compatibility
     $html = @"
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <title>Custom HTML Report</title>
-<style>
-    body { font-family: Arial, sans-serif; }
-    .container { display: flex; flex-wrap: wrap; }
-    .table-container { width: 48%; margin: 1%; box-sizing: border-box; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    th, td { border: 1px solid black; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    pre { white-space: pre-wrap; font-size: 16px; }
-
-    /* Color classes */
-    .none   { background-color: transparent; }
-    .red    { background-color: #ffcccc; }
-    .yellow { background-color: #ffffcc; }
-    .green  { background-color: #ccffcc; }
-</style>
 </head>
 <body>
-<h1>$emailHeader</h1>
-
-<pre>$Description</pre>
-<div class="container">
+    <table width='100%' cellpadding='0' cellspacing='0' border='0' style='font-family: Arial, sans-serif;'>
+        <tr>
+            <td style='padding: 20px 0; text-align: center;'>
+                <h1 style='font-size:24px; margin:0;'>$emailHeader</h1>
+            </td>
+        </tr>
+        <tr>
+            <td style='padding: 10px 20px;'>
+                <pre style='font-size:14px; white-space: pre-wrap;'>$Description</pre>
+            </td>
+        </tr>
+        <tr>
+            <td style='padding: 0 20px;'>
+                <table width='100%' cellpadding='0' cellspacing='0' border='0'>
 "@
 
     #----------------------------------------------------------------
@@ -273,10 +274,20 @@
         $envName = $obj.Environment
         $tableHeading = $obj.Name
 
+        $html += "<!-- Table for $tableHeading -->`n"
+        $html += "<tr><td colspan='2' style='padding-bottom: 10px;'>`n"
+
+        # Use a nested table for each object
         $html += @"
-<div class="table-container">
-  <h2>$tableHeading</h2>
-  <table>
+    <table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin-bottom: 20px;'>
+        <tr>
+            <td style='padding: 0 0 10px 0;'>
+                <h2 style='font-size:18px; margin:0;'>$tableHeading</h2>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <table width='100%' cellpadding='0' cellspacing='0' border='1' style='border-collapse: collapse;'>
 "@
 
         foreach ($prop in $obj.PSObject.Properties) {
@@ -292,10 +303,23 @@
                 $cellClass = Get-CellClass -Environment $envName -PropName $propName -PropValue $propValue
             }
 
-            $html += "<tr><td>$propName</td><td class='$cellClass'>$propValue</td></tr>"
+            # Define background color based on cell class
+            switch ($cellClass) {
+                "green"  { $bgColor = "#ccffcc" }
+                "yellow" { $bgColor = "#ffffcc" }
+                "red"    { $bgColor = "#ffcccc" }
+                default  { $bgColor = "transparent" }
+            }
+
+            # Append the row with inline styles
+            $html += "<tr>"
+            $html += "<td style='padding:8px; border:1px solid #000;'>$propName</td>"
+            $html += "<td style='padding:8px; border:1px solid #000; background-color:$bgColor;'>$propValue</td>"
+            $html += "</tr>"
         }
 
-        $html += "</table></div>"
+        # Close the nested tables
+        $html += "</table>`n</td>`n</tr>`n</table>`n</td></tr>`n"
     }
 
     #----------------------------------------------------------------
@@ -311,9 +335,17 @@
         $html += Build-SingleTableNoLinks -Data $Patching -Heading "Patching"
     }
 
+    # Close the main tables and add FooterText
     $html += @"
-</div>
-<pre>$FooterText</pre>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td style='padding: 10px 20px;'>
+                <pre style='font-size:14px; white-space: pre-wrap;'>$FooterText</pre>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
 "@
