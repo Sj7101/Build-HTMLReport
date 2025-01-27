@@ -1,17 +1,20 @@
 ﻿function Build-HTMLReport {
     param(
         [Parameter(Mandatory=$true)]
-        [PSCustomObject[]]$AllObjects,  # Color-coded, one table per object
+        [PSCustomObject[]]$AllObjects,      # Color-coded, one table per object
         [Parameter(Mandatory=$false)]
-        [PSCustomObject[]]$ServiceNow,   # Single table, embed link in 'Name'
+        [PSCustomObject[]]$ServiceNow,       # Single table, embed link in 'Name'
         [Parameter(Mandatory=$false)]
-        [PSCustomObject[]]$Tasks,        # Single table, embed link in 'Name'
+        [PSCustomObject[]]$Tasks,            # Single table, embed link in 'Name'
         [Parameter(Mandatory=$false)]
-        [PSCustomObject[]]$Patching,     # Single table, plain text
-        # Removed Description and FooterText parameters as they are now in JSON
+        [PSCustomObject[]]$Patching,         # Single table, plain text
+        [Parameter(Mandatory=$true)]
+        [string]$Description,                # Passed as a parameter
+        [Parameter(Mandatory=$true)]
+        [string]$FooterText                  # Passed as a parameter
     )
 
-    # Ensure $Script:Config.Thresholds and Email entries are loaded earlier in the script
+    # Ensure $Script:Config.Thresholds is loaded earlier in the script
     # Example:
     # $Script:Config = ConvertFrom-Json (Get-Content "C:\Path\Thresholds.json" -Raw)
 
@@ -31,6 +34,7 @@
         # Retrieve environment-specific rules
         $envRules = $null
         try {
+            # Dynamically access the environment's threshold rules
             $envRules = $Script:Config.Thresholds | Select-Object -ExpandProperty $Environment -ErrorAction Stop
         }
         catch {
@@ -218,17 +222,14 @@
     #----------------------------------------------------------------
     # Start Building the HTML Report
     #----------------------------------------------------------------
-    # Determine AM or PM based on current time
-    $timePart = (Get-Date).ToString("tt")  # Returns "AM" or "PM"
+    # Determine Day and AM/PM based on current time
+    $currentDay = (Get-Date).ToString("dddd")  # Full day name, e.g., "Monday"
+    $timePart = (Get-Date).ToString("tt")      # Returns "AM" or "PM"
 
-    # Retrieve Email Header from JSON and replace <TimePart> with AM/PM
-    $emailHeaderTemplate = $Script:Config.EmailHeader
-    $emailHeader = $emailHeaderTemplate -replace "<TimePart>", $timePart
+    # Build the Email Header with Day and AM/PM
+    $emailHeader = "ZL Shift Handover $currentDay $timePart"
 
-    # Retrieve Description and FooterText from JSON
-    $description = $Script:Config.Description
-    $footerText = $Script:Config.FooterText
-
+    # Start the HTML content
     $html = @"
 <!DOCTYPE html>
 <html>
@@ -254,7 +255,7 @@
 <body>
 <h1>$emailHeader</h1>
 
-<pre>$description</pre>
+<pre>$Description</pre>
 <div class="container">
 "@
 
@@ -273,7 +274,7 @@
 "@
 
         foreach ($prop in $obj.PSObject.Properties) {
-            # Include 'Environment' row if needed
+            # Include 'Environment' row
             if ($prop.Name -eq 'Name') { continue }
 
             $propName  = $prop.Name
@@ -306,7 +307,7 @@
 
     $html += @"
 </div>
-<pre>$footerText</pre>
+<pre>$FooterText</pre>
 </body>
 </html>
 "@
@@ -319,68 +320,3 @@
     Write-Host "HTML report generated at $OutputPath"
     return $html
 }
-
-
-<#
-
-# Load JSON configuration
-$Script:Config = ConvertFrom-Json (Get-Content "C:\Path\To\Thresholds.json" -Raw)
-
-# Prepare your data
-$AllObjects = @(
-    [PSCustomObject]@{
-        Name = "Server1"
-        Environment = "CA2015"
-        "Live Servers" = 189
-        Queueing = 0
-        Active_Search_Partition_Count = 250000000
-        "DBQueue Status 0" = 500000
-        # ... other properties
-    },
-    [PSCustomObject]@{
-        Name = "Server2"
-        Environment = "PA"
-        "Live Servers" = 39
-        Queueing = 1
-        MTA_Monitor = 0
-        Active_Search_Partition_Count = 350000000
-        # ... other properties
-    }
-    # ... more objects
-)
-
-$ServiceNow = @(
-    [PSCustomObject]@{
-        Name = "SN Issue 1"
-        Link = "https://servicenow.example.com/issue/1"
-        # ... other properties
-    }
-    # ... more ServiceNow entries
-)
-
-$Tasks = @(
-    [PSCustomObject]@{
-        Name = "Task1"
-        Link = "https://tasks.example.com/task/1"
-        # ... other properties
-    }
-    # ... more Tasks entries
-)
-
-$Patching = @(
-    [PSCustomObject]@{
-        "Patch Name" = "KB123456"
-        "Status" = "Installed"
-        # ... other properties
-    }
-    # ... more Patching entries
-)
-
-# Build the HTML report
-$htmlContent = Build-HTMLReport -AllObjects $AllObjects -ServiceNow $ServiceNow -Tasks $Tasks -Patching $Patching
-
-# Optionally, send the email
-Send-MailMessage -To "recipient@example.com" -Subject "Custom HTML Report" -BodyAsHtml -Body $htmlContent -SmtpServer "smtp.example.com"
-
-
-#>
