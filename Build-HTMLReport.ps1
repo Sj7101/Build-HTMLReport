@@ -412,3 +412,16 @@
 
     return $html
 }
+
+
+<#
+
+,
+      {
+        "PropertyName": "DataBase Free Space",
+        "Green": ">=40 && <80",
+        "Yellow": ">=30 && <40",
+        "Red": "<30"
+      }
+
+#>
